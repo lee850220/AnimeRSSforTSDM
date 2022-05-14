@@ -20,18 +20,19 @@
 
 #define HTTPCODE_OK         200
 
+#define LINE_API            "https://notify-api.line.me/api/notify"
 #define SERVER_URL          "https://kdrive.ga:6800/jsonrpc"
+
 #define JSONRPC             "2.0"
 #define METHOD              "aria2.addUri"
 #define ID                  "root"
+
 #define CERT_PATH           "/etc/aria2/intermediate.pem"
 #define DLDIR               "/NAS/Aria2/"
 #define ARIA2_CONFIG        "/etc/aria2/aria2.conf"
 #define TIMESTAMP_FILE      "/etc/aria2/checkpoint"
 #define FILENAME_LIST       "/etc/aria2/RSSLIST.txt"
 #define PRETTY_XML          "/etc/aria2/prettyXML.py"
-
-#define LINE_API            "https://notify-api.line.me/api/notify"
 
 #define ITEM_HEAD           "<item>"
 #define ITEM_END            "</item>"
@@ -169,7 +170,7 @@ void readToken(void) {
 
     // read Aria2 config
     fp_config = fopen(ARIA2_CONFIG, "r");
-    if (fp_config == NULL) exit(1);
+    if (fp_config == NULL) {printf(MSG_ERROR"Cannot open aria2 config.\n"); exit(1);}
     while (fgets(buf, sizeof(buf), fp_config) != NULL) {
 
         rm_newline(buf);
@@ -211,7 +212,7 @@ void getRSS(void) {
     FILE * fp_list;
 
     fp_list = fopen(FILENAME_LIST, "r");
-    if (fp_list == NULL) exit(1);
+    if (fp_list == NULL) {printf(MSG_ERROR"Cannot open RSSLIST.\n"); exit(1);}
 
     // process each line of RSS
     while (fgets(URL_RSS, sizeof(URL_RSS), fp_list) != NULL) {
@@ -248,7 +249,7 @@ void getXML(const char * const URL) {
     memset(cmd, 0, sizeof(cmd));
     sprintf(cmd, "python3 %s \"%s\"", PRETTY_XML, URL);
     fp_xml = popen(cmd, "r");
-    if (fp_xml == NULL) exit(1);
+    if (fp_xml == NULL) {printf(MSG_ERROR"Get XML failed.\n"); exit(1);}
     while (fgets(buf, sizeof(buf), fp_xml) != NULL) {
         
         rm_newline(buf);
@@ -268,51 +269,6 @@ void getXML(const char * const URL) {
     free(cmd);
 
 }
-
-/*
-void create_item(FILE * fp) {
-
-    char buf[BUF_SIZE];
-    char * start, * end;
-
-    while (fgets(buf, sizeof(buf), fp) != NULL) {
-        
-        rm_newline(buf);
-
-        // read title
-        if (strncmp(buf, TITLE_HEAD, strlen(TITLE_HEAD)) == 0) {
-
-            start = strstr(buf, "CDATA[") + strlen("CDATA[");
-            end = strstr(buf, "]></title>") - 1;
-            memset(PUBLISH.title, 0, sizeof(PUBLISH.title));
-            strncpy(PUBLISH.title, start, end - start);
-
-        } 
-        // read link
-        else if (strncmp(buf, LINK_HEAD, strlen(LINK_HEAD)) == 0) {
-            
-            start = strchr(buf, '>') + 1;
-            end = strrchr(buf, '<');
-            memset(PUBLISH.link, 0, sizeof(PUBLISH.link));
-            strncpy(PUBLISH.link, start, end - start); 
-            //printf("%s\n", PUBLISH.link);
-
-        }
-        // read pubDate
-        else if (strncmp(buf, PUBDATE_HEAD, strlen(PUBDATE_HEAD)) == 0) {
-            
-            start = strchr(buf, '>') + 1;
-            end = strrchr(buf, '<');
-            memset(PUBLISH.pubDate, 0, sizeof(PUBLISH.pubDate));
-            strncpy(PUBLISH.pubDate, start, end - start); 
-
-        }
-        else if (strncmp(buf, ITEM_END, strlen(ITEM_END)) == 0) break;
-
-    }
-
-}
-*/
 
 /*
  *  Create an object to store each Push info. (for Bangumi)
@@ -399,7 +355,7 @@ void push_notify(void) {
                     " --data-urlencode 'Message=%s'", LINE_API, LINE_TOKEN, msg);
 
     fp_notify = popen(cmd, "r");
-    if (fp_notify == NULL) exit(1);
+    if (fp_notify == NULL) {printf(MSG_ERROR"Send notify to LINE failed.\n"); exit(1);}
     fgets(buf, sizeof(buf), fp_notify);
     rm_newline(buf);
     start = strstr(buf, "status\":") + strlen("status\":");
@@ -432,7 +388,7 @@ void gettorrent(void) {
     strcat(cmd, "'|grep 會員專用連接");
     
     fp_torrent = popen(cmd, "r");
-    if (fp_torrent == NULL) exit(1);
+    if (fp_torrent == NULL) {printf(MSG_ERROR"Cannot get torrent.\n"); exit(1);}
     while (fgets(buf, sizeof(buf), fp_torrent) != NULL) {
         
         rm_newline(buf);
@@ -472,7 +428,7 @@ void addDownload(void) {
                                                       "[\"%s\"]]}' " \
                                      "--cacert %s", SERVER_URL, JSONRPC, METHOD, ID, ARIA2_TOKEN, PUBLISH.torrent, CERT_PATH);
     fp_http_req = popen(cmd, "r");
-    if (fp_http_req == NULL) exit(1);
+    if (fp_http_req == NULL) {printf(MSG_ERROR"Send HTTP request failed.\n"); exit(1);}
     fgets(buf, sizeof(buf), fp_http_req);
     memset(code, 0, sizeof(code));
     start = strrchr(buf, ':') + 1;
@@ -490,7 +446,7 @@ void addDownload(void) {
     while (1) {
 
         fp_filename = popen(cmd, "r");
-        if (fp_filename == NULL) exit(1);
+        if (fp_filename == NULL) {printf(MSG_ERROR"Cannot get torrent filename.\n"); exit(1);}
         fgets(buf, sizeof(buf), fp_filename);
         pclose(fp_filename);
         rm_newline(buf);
@@ -599,7 +555,7 @@ void show_lasttime(void) {
 
         printf("First Run.\n");
         fp_time = fopen(TIMESTAMP_FILE, "w");
-        if (fp_time == NULL) exit(1);
+        if (fp_time == NULL) {printf(MSG_ERROR"Cannot get current time.\n"); exit(1);}
         fprintf(fp_time, "%ld\n", CUR_TIME);
         LAST_TIME = CUR_TIME;
         
@@ -625,7 +581,7 @@ void update_checkpoint(void) {
 
     FILE * fp_time;
     fp_time = fopen(TIMESTAMP_FILE, "w");
-    if (fp_time == NULL) exit(1);
+    if (fp_time == NULL) {printf(MSG_ERROR"Cannot open checkpoint file.\n"); exit(1);}
     fprintf(fp_time, "%ld\n", CUR_TIME);
     fclose(fp_time);
 
