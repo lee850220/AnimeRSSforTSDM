@@ -4,7 +4,7 @@ path="${1%/*}/"
 filename_ext="${1##*/}"
 head="\[Inanity\\\\u7dcb\\\\u96ea@TSDM\]"
 uploadDIR="/apps/bypy"
-Cookie=''
+Cookie=$(cat aria2.conf | grep COOKIE | sed "s/.*'\(.*\)'/\1/")
 
 if [ "$2" = "F" ]; then 
     filename="${filename_ext}"

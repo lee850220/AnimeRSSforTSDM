@@ -74,15 +74,16 @@ elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
     then
 		# One File
 		hash=$(python "$scriptpath"/aria2_to_magnet.py "$path".aria2)
-		IFS=$'\n'
+		SAVEIFS=$IFS
+		IFS=$(echo -en "\n\b")
 		for file in $(ls $downloadpath/*.torrent); do
 			hash1=$(python "$scriptpath"/infohash.py "$file")
 			if [ "$hash" = "$hash1" ]; then 
-				[ -e "$path.upload" ] && /etc/aria2/rar_TSDM.sh "${path}" && rm -fv "${downloadpath}/[Inanity緋雪@TSDM]${filename}.rar"
+				[ -e "$path.upload" ] && /etc/aria2/rar_TSDM.sh "${path}"
 				BT_SINGLE
 			fi
 		done
-		unset IFS
+		IFS=$SAVEIFS
 		NORMAL;
 		
 elif [ "$path" != "$filepath" ]

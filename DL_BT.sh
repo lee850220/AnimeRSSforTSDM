@@ -54,7 +54,8 @@ then
 	# One File
 	# find torrent
 	hash=$(python "$scriptpath"/aria2_to_magnet.py "$path".aria2)
-	IFS=$'\n'
+	SAVEIFS=$IFS
+	IFS=$(echo -en "\n\b")
 	for file in $(ls $downloadpath/*.torrent); do
 		hash1=$(python "$scriptpath"/infohash.py "$file")
 		if [ "$hash" = "$hash1" ]; then 
@@ -62,7 +63,7 @@ then
 			BT
 		fi
 	done
-	unset IFS
+	IFS=$SAVEIFS
 	NORMAL;
 	
 elif [ "$path" != "$filepath" ]

@@ -70,11 +70,20 @@ if [ $2 -eq 0 ]
 elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
     then
 		# One File
-		if [ -e "$filename.torrent" ]; then BT_SINGLE; fi
 		hash=$(python "$scriptpath"/aria2_to_magnet.py "$path".aria2)
-		if [ -e "$downloadpath/$hash.torrent" ]; then BT_SINGLE $hash;
-		else NORMAL;
-		fi
+		SAVEIFS=$IFS
+		IFS=$(echo -en "\n\b")
+		echo "[delete.sh] Finding torrents..."
+		for file in $(ls $downloadpath/*.torrent); do
+			echo "$file"
+			hash1=$(python "$scriptpath"/infohash.py "$file")
+			if [ "$hash" = "$hash1" ]; then 
+				[ -e "$path.upload" ] && /etc/aria2/rar_TSDM.sh "${path}" && rm -fv "${downloadpath}/[Inanity緋雪@TSDM]${filename}.rar"
+				BT_SINGLE
+			fi
+		done
+		IFS=$SAVEIFS
+		NORMAL;
 elif [ "$path" != "$filepath" ]
     then
 		# Folder
