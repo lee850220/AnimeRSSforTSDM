@@ -24,15 +24,14 @@
 #define JSONRPC             "2.0"
 #define METHOD              "aria2.addUri"
 #define ID                  "root"
-#define TOKEN               ""
 #define CERT_PATH           "/etc/aria2/intermediate.pem"
 #define DLDIR               "/NAS/Aria2/"
+#define ARIA2_CONFIG        "/etc/aria2/aria2.conf"
 #define TIMESTAMP_FILE      "/etc/aria2/checkpoint"
 #define FILENAME_LIST       "/etc/aria2/RSSLIST.txt"
 #define PRETTY_XML          "/etc/aria2/prettyXML.py"
 
 #define LINE_API            "https://notify-api.line.me/api/notify"
-#define BEARER              ""
 
 #define ITEM_HEAD           "<item>"
 #define ITEM_END            "</item>"
@@ -94,7 +93,9 @@ typedef struct publish {
 
 typedef struct tm TIME, * TIME_ptr;
 
-char        URL_RSS[BUF_SIZE];
+char        URL_RSS         [BUF_SIZE];
+char        LINE_TOKEN      [BUF_SIZE];
+char        ARIA2_TOKEN     [BUF_SIZE];
 time_t      CUR_TIME;
 time_t      LAST_TIME;
 publish     PUBLISH;
@@ -117,20 +118,21 @@ const int   len_req         = strlen("curl -X POST ''" \
                                                            "[\"\"]]}'" \
                                           "--cacert ") + 1;
 
-void getRSS(void);
-void getXML(const char * const);
-void rm_newline(char *);
-void create_item(FILE *);
-void push_notify(void);
-void gettorrent(void);
-void addDownload(void);
-bool checknew(void);
-void show_lasttime(void);
-void update_checkpoint(void);
-int  number_for_key(char *);
-void rmspace(char *);
-void printline(void);
-void printdline(void);
+void readToken          (void);
+void getRSS             (void);
+void getXML             (const char * const);
+void rm_newline         (char *);
+void create_item        (FILE *);
+void push_notify        (void);
+void gettorrent         (void);
+void addDownload        (void);
+bool checknew           (void);
+void show_lasttime      (void);
+void update_checkpoint  (void);
+int  number_for_key     (char *);
+void rmspace            (char *);
+void printline          (void);
+void printdline         (void);
 
 
 int main(int argc, char *argv[]) {
@@ -141,12 +143,61 @@ int main(int argc, char *argv[]) {
     show_lasttime();
     printdline();
 
+    // get tokens
+    readToken();
+
     // read RSS list
     getRSS();
     
     // update checkpoint
     update_checkpoint();
     return 0;
+
+}
+
+/*
+ *  Read LINE & Aria2 Token.
+ *  Input:  none
+ *  Output: none
+ */   
+void readToken(void) {
+
+    FILE * fp_config;
+    char buf[BUF_SIZE];
+    char * start;
+    bool is_Aria2 = false, is_LINE = false;
+
+    // read Aria2 config
+    fp_config = fopen(ARIA2_CONFIG, "r");
+    if (fp_config == NULL) exit(1);
+    while (fgets(buf, sizeof(buf), fp_config) != NULL) {
+
+        rm_newline(buf);
+        // find Aria2 token
+        start = strstr(buf, "rpc-secret=");
+        if (start) {
+            
+            start += strlen("rpc-secret=");
+            memset(ARIA2_TOKEN, 0, sizeof(ARIA2_TOKEN));
+            strcpy(ARIA2_TOKEN, start);
+            is_Aria2 = true;
+
+        }
+        
+        // find LINE token
+        start = strstr(buf, "LINE=");
+        if (start) {
+            
+            start += strlen("LINE=");
+            memset(LINE_TOKEN, 0, sizeof(LINE_TOKEN));
+            strcpy(LINE_TOKEN, start);
+            is_LINE = true;
+
+        }
+        if (is_Aria2 && is_LINE) break;
+
+    }
+    fclose(fp_config);
 
 }
 
@@ -195,15 +246,13 @@ void getXML(const char * const URL) {
     char buf[BUF_SIZE];
     char * cmd = (char *)malloc(sizeof(char) * (len_rss + strlen(PRETTY_XML) + strlen(URL)));
     memset(cmd, 0, sizeof(cmd));
-    sprintf(cmd, "python3 %s %s", PRETTY_XML, URL);
-    //sprintf(cmd, "wget -qO- %s", URL);
-    //printf("%s\n", cmd);
-
+    sprintf(cmd, "python3 %s \"%s\"", PRETTY_XML, URL);
     fp_xml = popen(cmd, "r");
     if (fp_xml == NULL) exit(1);
     while (fgets(buf, sizeof(buf), fp_xml) != NULL) {
         
         rm_newline(buf);
+
         // parse item block
         if (strstr(buf, ITEM_HEAD)) {
             create_item(fp_xml);
@@ -219,6 +268,7 @@ void getXML(const char * const URL) {
     free(cmd);
 
 }
+
 /*
 void create_item(FILE * fp) {
 
@@ -333,7 +383,7 @@ void push_notify(void) {
     FILE * fp_notify;
     char msg[BUF_SIZE], buf[BUF_SIZE], code[4];
     char * start, * end;
-    char * cmd = (char *)malloc(sizeof(char) * (len_notify + strlen(BEARER) + strlen(LINE_API) + BUF_SIZE));
+    char * cmd = (char *)malloc(sizeof(char) * (len_notify + strlen(LINE_TOKEN) + strlen(LINE_API) + BUF_SIZE));
 
     printf(MSG_TITLE"%s\n", PUBLISH.title);
     printf(MSG_PUBDATE"%s\n", PUBLISH.pubDate);
@@ -346,7 +396,7 @@ void push_notify(void) {
     sprintf(cmd, "curl -sX POST '%s'" \
                     " --header 'Content-Type: application/x-www-form-urlencoded'" \
                     " --header 'Authorization: Bearer %s'" \
-                    " --data-urlencode 'Message=%s'", LINE_API, BEARER, msg);
+                    " --data-urlencode 'Message=%s'", LINE_API, LINE_TOKEN, msg);
 
     fp_notify = popen(cmd, "r");
     if (fp_notify == NULL) exit(1);
@@ -412,15 +462,15 @@ void addDownload(void) {
     
     // send HTTP request to Aria2
     cmd = (char *)malloc(sizeof(char) * (len_req + strlen(SERVER_URL) + strlen(JSONRPC) + strlen(METHOD) \
-                                                 + strlen(ID) + strlen(TOKEN) + strlen(PUBLISH.torrent) + strlen(CERT_PATH)));
+                                                 + strlen(ID) + strlen(ARIA2_TOKEN) + strlen(PUBLISH.torrent) + strlen(CERT_PATH)));
     memset(cmd, 0, sizeof(cmd));
-    sprintf(cmd, "curl -sX POST %s -w \" Status: %{http_code}\" " \
-                                  "-d '{\"jsonrpc\":\"%s\"," \
-                                       "\"method\":\"%s\"," \
-                                       "\"id\":\"%s\"," \
-                                       "\"params\":[\"token:%s\"," \
-                                                  "[\"%s\"]]}' " \
-                                  "--cacert %s", SERVER_URL, JSONRPC, METHOD, ID, TOKEN, PUBLISH.torrent, CERT_PATH);
+    sprintf(cmd, "curl -sX POST \"%s\" -w \" Status: %{http_code}\" " \
+                                      "-d '{\"jsonrpc\":\"%s\"," \
+                                           "\"method\":\"%s\"," \
+                                           "\"id\":\"%s\"," \
+                                           "\"params\":[\"token:%s\"," \
+                                                      "[\"%s\"]]}' " \
+                                     "--cacert %s", SERVER_URL, JSONRPC, METHOD, ID, ARIA2_TOKEN, PUBLISH.torrent, CERT_PATH);
     fp_http_req = popen(cmd, "r");
     if (fp_http_req == NULL) exit(1);
     fgets(buf, sizeof(buf), fp_http_req);
@@ -482,6 +532,8 @@ bool checknew(void) {
     time_t rawtime_tar;
     char * start, * end;
     char temp[BUF_SIZE];
+    
+    T.tm_isdst = 0;
 
     // parse mday
     start = strchr(PUBLISH.pubDate, ' ') + 1;

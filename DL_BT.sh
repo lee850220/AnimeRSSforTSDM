@@ -58,7 +58,7 @@ then
 	for file in $(ls $downloadpath/*.torrent); do
 		hash1=$(python "$scriptpath"/infohash.py "$file")
 		if [ "$hash" = "$hash1" ]; then 
-			[ -e "$path.upload" ] && /etc/aria2/rar_TSDM.sh "${path}" && rm -fv "${downloadpath}/[Inanity緋雪@TSDM]${filename}.rar"
+			[ -e "$path.upload" ] && /etc/aria2/RAR_TSDM.sh "${path}"
 			BT
 		fi
 	done
@@ -68,7 +68,7 @@ then
 elif [ "$path" != "$filepath" ]
 then
 	# Folder (need fix)
-	[ -e "$path.upload" ] && /etc/aria2/rar_TSDM.sh "${path}" "F" && rm -fv "${downloadpath}/[Inanity緋雪@TSDM]${filename}.rar"
+	[ -e "$path.upload" ] && /etc/aria2/RAR_TSDM.sh "${path}" "F"
 	BT        
 fi
 

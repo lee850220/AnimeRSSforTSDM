@@ -15,6 +15,7 @@ fi
 
 rar a -hp"Inanity緋雪@僅分享於TSDM" -rr3 -k -t -htb -c -z"/etc/aria2/comment.txt" "${path}[Inanity緋雪@TSDM]${filename}.rar" "$1"
 bypy upload "${path}[Inanity緋雪@TSDM]${filename}.rar" -v
+rm -rfv "${path}[Inanity緋雪@TSDM]${filename}.rar"
 
 # get file ID
 #fileID=$(
