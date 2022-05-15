@@ -553,14 +553,16 @@ void show_lasttime(void) {
     fp_time = fopen(TIMESTAMP_FILE, "r");
     if (fp_time == NULL) {
 
+        // if no checkpoint exist
         printf("First Run.\n");
         fp_time = fopen(TIMESTAMP_FILE, "w");
-        if (fp_time == NULL) {printf(MSG_ERROR"Cannot get current time.\n"); exit(1);}
+        if (fp_time == NULL) {printf(MSG_ERROR"Cannot create checkpoint.\n"); exit(1);}
         fprintf(fp_time, "%ld\n", CUR_TIME);
         LAST_TIME = CUR_TIME;
         
     } else {
 
+        // read checkpoint
         fgets(buf, sizeof(buf), fp_time);
         rm_newline(buf);
         LAST_TIME = atol(buf);
