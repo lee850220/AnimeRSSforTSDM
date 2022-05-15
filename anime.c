@@ -19,6 +19,7 @@
 #define COLOR_LIGHTBLUE     "\033[1;36m"
 
 #define HTTPCODE_OK         200
+#define TIMEZONE            8           // UTC+8
 
 #define LINE_API            "https://notify-api.line.me/api/notify"
 #define SERVER_URL          "https://kdrive.ga:6800/jsonrpc"
@@ -478,7 +479,7 @@ void addDownload(void) {
 }
 
 /*
- *  Check whether the publish is new.
+ *  Check whether the publish is new. (GMT)
  *  Input:  none
  *  Output: none
  */ 
@@ -532,6 +533,43 @@ bool checknew(void) {
     memset(temp, 0, sizeof(temp));
     strncpy(temp, start, end - start);
     T.tm_sec = atoi(temp);
+
+    // apply timezone
+    T.tm_hour += TIMEZONE;
+    if (T.tm_hour > 23) {
+
+        T.tm_hour %= 24;
+        T.tm_mday++;
+        if (T.tm_mday > 31) {
+
+            T.tm_mday %= 31;
+            T.tm_mon++;
+            if (T.tm_mon > 11) {
+
+                T.tm_mon %= 12;
+                T.tm_year++;
+
+            }
+
+        }
+
+    } else if (T.tm_hour < 0) {
+
+        T.tm_mday--;
+        T.tm_hour += 24;
+        if (T.tm_mday < 1) {
+
+            T.tm_mon--;
+            T.tm_mday += 31;
+            if (T.tm_mon < 0) {
+
+                T.tm_year--;
+                T.tm_mon += 12;
+                
+            }
+
+        }
+    }
     
     rawtime_tar = mktime(&T);   // get target timestamp
     //printf("%ld %ld\n", rawtime_tar, LAST_TIME);

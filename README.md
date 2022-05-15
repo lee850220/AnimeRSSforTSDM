@@ -1,5 +1,5 @@
 # AnimeRSSforTSDM  
-![](https://img.shields.io/badge/tag-v0.2-blue)  ![](https://img.shields.io/badge/maintaince%3F-yes-brightgreen)  [![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg)  
+![](https://img.shields.io/badge/tag-v1.0-blue)  ![](https://img.shields.io/badge/maintaince%3F-yes-brightgreen)  [![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg)  
 This is a project to automatically transfer Anime to Baidu netdisk with some rules on TSDM.
 <br>
 <br>
@@ -12,11 +12,16 @@ Watch this [**post**](https://www.tsdm39.net/forum.php?mod=viewthread&tid=110119
 
 # Ongoing
 - Support multiple RSS sites.
-- Auto create share links with Baidu API.
-- Auto post on TSDM.
+- Rewrite Baidu upload script with multi-thread.
 - Auto edit post on TSDM.
 
 # Changelog
+## [[v1.0](https://github.com/lee850220/AnimeRSSforTSDM/releases/tag/v1.0)] - 2022-05-16
+### Added
+- Calculate timezone for check time function.
+- Auto generate Baidu share link and push notification to LINE.
+- Auto post to TSDM.
+
 
 ## [[v0.2](https://github.com/lee850220/AnimeRSSforTSDM/commit/d74ce5285ebf1aa978048a879bed106098e240fb)] - 2022-05-15
 ### Added
