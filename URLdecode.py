@@ -1,5 +1,5 @@
 import sys
-from urllib.parse import unquote
+import html
 
 url = sys.argv[1]
-print(unquote(url))
+print(html.unescape(url))

@@ -33,8 +33,12 @@
 #define ARIA2_CONFIG        "/etc/aria2/aria2.conf"
 #define TIMESTAMP_FILE      "/etc/aria2/checkpoint"
 #define FILENAME_LIST       "/etc/aria2/RSSLIST.txt"
+#define FILENAME_RSSTIME    "/etc/aria2/RSSLIST_timestamp"
+#define POST_FILE           "/etc/aria2/post.txt"
 #define PRETTY_XML          "/etc/aria2/prettyXML.py"
+#define CMD_MOVETS          "mv "FILENAME_RSSTIME"_tmp "FILENAME_RSSTIME
 
+#define POST_DELIMIT        "$$$$$"
 #define ITEM_HEAD           "<item>"
 #define ITEM_END            "</item>"
 #define TITLE_HEAD          "<title>"
@@ -85,28 +89,34 @@ struct entry MONTH[] = {
 
 typedef struct publish {
 
-    char title      [BUF_SIZE];
-    char link       [BUF_SIZE];
-    char pubDate    [BUF_SIZE];
-    char torrent    [BUF_SIZE];
-    char filename   [BUF_SIZE];
+    char    title      [BUF_SIZE];
+    char    ptitle     [BUF_SIZE];
+    int     order;
+    char    link       [BUF_SIZE];
+    char    torrent    [BUF_SIZE];
+    char    filename   [BUF_SIZE];
+    time_t  pubTime;
+    time_t  lastPub;
 
 } publish, * publish_ptr;
 
 typedef struct tm TIME, * TIME_ptr;
 
+int         RSS_CNT         = 0;
+int         RSS_PUB_CNT     = 0;
 char        URL_RSS         [BUF_SIZE];
 char        LINE_TOKEN      [BUF_SIZE];
 char        ARIA2_TOKEN     [BUF_SIZE];
 time_t      CUR_TIME;
 time_t      LAST_TIME;
+time_t      DL_START;
 publish     PUBLISH;
 
 const int   len_rss         = strlen("python3 /etc/aria2/test.py ") + 1;
 const int   len_torrent     = strlen("wget -qO- '' | grep 會員專用連接") + 1;
 const int   len_filename    = strlen("transmission-show  | grep Name | head -1") + 1;
 const int   len_filename_c  = strlen("transmission-show \"\" &> /dev/null;echo $?") + 1;
-const int   len_createfile  = strlen("touch '.upload'") + 1;
+const int   len_createfile  = strlen("rm -f '.upload'sudo -u apache touch '.upload'") + 1;
 const int   len_notify      = strlen("curl -sX POST ''" \
                                          " --header 'Content-Type: application/x-www-form-urlencoded'" \
                                          " --header 'Authorization: Bearer '" \
@@ -120,21 +130,21 @@ const int   len_req         = strlen("curl -X POST ''" \
                                                            "[\"\"]]}'" \
                                           "--cacert ") + 1;
 
-void readToken          (void);
-void getRSS             (void);
-void getXML             (const char * const);
-void rm_newline         (char *);
-void create_item        (FILE *);
-void push_notify        (void);
-void gettorrent         (void);
-void addDownload        (void);
-bool checknew           (void);
-void show_lasttime      (void);
-void update_checkpoint  (void);
-int  number_for_key     (char *);
-void rmspace            (char *);
-void printline          (void);
-void printdline         (void);
+void    readToken          (void);
+void    getRSS             (void);
+void    getXML             (const char * const);
+void    rm_newline         (char *);
+void    create_item        (FILE *);
+void    push_notify        (void);
+void    gettorrent         (void);
+void    addDownload        (void);
+void    show_lasttime      (void);
+void    update_checkpoint  (void);
+time_t  translate_time     (const char const *);
+int     number_for_key     (char *);
+void    rmspace            (char *);
+void    printline          (void);
+void    printdline         (void);
 
 
 int main(int argc, char *argv[]) {
@@ -153,6 +163,9 @@ int main(int argc, char *argv[]) {
     
     // update checkpoint
     update_checkpoint();
+    system(CMD_MOVETS);
+    printf("Checked %d RSS, and %d has published new episode.\n", RSS_CNT, RSS_PUB_CNT);
+    printdline();
     return 0;
 
 }
@@ -210,30 +223,58 @@ void readToken(void) {
  */   
 void getRSS(void) {
 
-    FILE * fp_list;
+    char * ptr, * pptr, * ppptr;
+    char buf[BUF_SIZE];
+    FILE * fp_list, * fp_tlist, * fp_ttlist;
 
     fp_list = fopen(FILENAME_LIST, "r");
+    fp_tlist = fopen(FILENAME_RSSTIME, "r");
     if (fp_list == NULL) {printf(MSG_ERROR"Cannot open RSSLIST.\n"); exit(1);}
+    memset(PUBLISH.ptitle, 0, sizeof(PUBLISH.ptitle));
 
     // process each line of RSS
     while (fgets(URL_RSS, sizeof(URL_RSS), fp_list) != NULL) {
 
-        char * ptr;
+        
         rm_newline(URL_RSS);
-        ptr = strchr(URL_RSS, ' ');
+        ptr = strchr(URL_RSS, ' ');         // get post title
         if (ptr != NULL) {
             
-            *ptr++ = 0;
-            printf(MSG_RSS"%s (%s)\n", URL_RSS, ptr);
+            *ptr++ = 0;                     // seperate URL
+            pptr = strchr(ptr, ' ');        // get order
+            if (pptr != NULL) {
 
-        } else { printf(MSG_RSS"%s\n", URL_RSS); }
-        printline();
-        rm_newline(URL_RSS);
+                *pptr++ = 0;
+                PUBLISH.order = atoi(pptr);                 
+
+            } else { printf(MSG_ERROR"Illegal format.\n"); exit(1); }
+            strcpy(PUBLISH.ptitle, ptr);
+
+        } else { printf(MSG_ERROR"Illegal format.\n"); exit(1); }
+        //printf(MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle);
+
+        // get last publish timestamp
+        if (fp_tlist != NULL) {
+        
+            fgets(buf, sizeof(buf), fp_tlist);
+            rm_newline(buf);
+            PUBLISH.lastPub = atol(buf);
+        
+        } else {PUBLISH.lastPub = CUR_TIME;}
+        //printline();
+        RSS_CNT++;
         getXML(URL_RSS); // get RSS push info
-        printdline();
+
+        // update last publish timestamp
+        fp_ttlist = fopen(FILENAME_RSSTIME"_tmp", "a+");
+        if (fp_ttlist == NULL) {printf(MSG_ERROR"Cannot create RSS timestamp temp file.\n"); exit(1); }
+        fprintf(fp_ttlist, "%ld\n", PUBLISH.lastPub);
+        fclose(fp_ttlist);
+        //printdline();
 
     }
     fclose(fp_list);
+    if (fp_tlist != NULL) fclose(fp_tlist);
 
 }
 
@@ -245,6 +286,8 @@ void getRSS(void) {
 void getXML(const char * const URL) {
 
     FILE * fp_xml;
+    time_t temp;
+    bool top = true;
     char buf[BUF_SIZE];
     char * cmd = (char *)malloc(sizeof(char) * (len_rss + strlen(PRETTY_XML) + strlen(URL)));
     memset(cmd, 0, sizeof(cmd));
@@ -258,14 +301,20 @@ void getXML(const char * const URL) {
         // parse item block
         if (strstr(buf, ITEM_HEAD)) {
             create_item(fp_xml);
-            if (!checknew()) break;
+            if (top) temp = PUBLISH.pubTime;
+            top = false;
+            if (PUBLISH.pubTime <= LAST_TIME && PUBLISH.pubTime <= PUBLISH.lastPub) break;
+            RSS_PUB_CNT++;
+            printf(MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle);
             push_notify();
             addDownload();
-            printf("\n");
+            printline();
+            printdline();
 
-        }
+        }        
 
     }
+    PUBLISH.lastPub = temp;
     pclose(fp_xml);
     free(cmd);
 
@@ -303,16 +352,17 @@ void create_item(FILE * fp) {
             end = strrchr(buf, '<');
             memset(PUBLISH.link, 0, sizeof(PUBLISH.link));
             strncpy(PUBLISH.link, start, end - start); 
-            //printf("%s\n", PUBLISH.link);
 
         }
         // read pubDate
         else if (strstr(buf, PUBDATE_HEAD)) {
 
+            char temp[BUF_SIZE];
             start = strchr(buf, '>') + 1;
             end = strrchr(buf, '<');
-            memset(PUBLISH.pubDate, 0, sizeof(PUBLISH.pubDate));
-            strncpy(PUBLISH.pubDate, start, end - start); 
+            memset(temp, 0, sizeof(temp));
+            strncpy(temp, start, end - start); 
+            PUBLISH.pubTime = translate_time(temp);
 
         }
         else if (strstr(buf, ENCLOSURE)) {
@@ -326,7 +376,6 @@ void create_item(FILE * fp) {
         else if (strstr(buf, ITEM_END)) break;
 
     }
-    //printf("%s\n%s\n%s\n", PUBLISH.title, PUBLISH.pubDate, PUBLISH.torrent);
 
 }
 
@@ -341,15 +390,16 @@ void push_notify(void) {
     char msg[BUF_SIZE], buf[BUF_SIZE], code[4];
     char * start, * end;
     char * cmd = (char *)malloc(sizeof(char) * (len_notify + strlen(LINE_TOKEN) + strlen(LINE_API) + BUF_SIZE));
-
-    printf(MSG_TITLE"%s\n", PUBLISH.title);
-    printf(MSG_PUBDATE"%s\n", PUBLISH.pubDate);
-    printf(MSG_TORRENT"%s\n", PUBLISH.torrent); 
+    
     memset(cmd, 0, sizeof(cmd));
     memset(msg, 0, sizeof(msg));
     memset(buf, 0, sizeof(buf));
 
-    sprintf(msg, "\n[Title]： %s\n[PubDate]： %s\n[URL]： %s", PUBLISH.title, PUBLISH.pubDate, PUBLISH.link);
+    strftime(buf, BUF_SIZE, "%Y/%m/%d %H:%M:%S (%a)", localtime(&PUBLISH.pubTime));
+    printf(MSG_TITLE"%s\n", PUBLISH.title);
+    printf(MSG_PUBDATE"%s\n", buf);
+    printf(MSG_TORRENT"%s\n", PUBLISH.torrent); 
+    sprintf(msg, "\n[Title]： %s\n[PubDate]： %s\n[URL]： %s", PUBLISH.title, buf, PUBLISH.link);
     sprintf(cmd, "curl -sX POST '%s'" \
                     " --header 'Content-Type: application/x-www-form-urlencoded'" \
                     " --header 'Authorization: Bearer %s'" \
@@ -413,9 +463,12 @@ void gettorrent(void) {
  */ 
 void addDownload(void) {
 
-    FILE * fp_http_req, * fp_filename;
+    FILE * fp_http_req, * fp_filename, * fp_config, * fp_post;
+    bool fin;
+    int cnt;
     char * cmd, * start;
     char buf[BUF_SIZE], torrent_name[BUF_SIZE], code[4];
+    time_t dl_start;
     
     // send HTTP request to Aria2
     cmd = (char *)malloc(sizeof(char) * (len_req + strlen(SERVER_URL) + strlen(JSONRPC) + strlen(METHOD) \
@@ -437,6 +490,7 @@ void addDownload(void) {
     if (atoi(code) == HTTPCODE_OK) printf(MSG_NOTICE""MSG_ADDTASK""MSG_SUCCESS"\n");
     else                           printf(MSG_NOTICE""MSG_ADDTASK""MSG_FAIL"\n");
     pclose(fp_http_req);
+    time(&dl_start); // get download start time
 
     // wait until torrent file downloaded
     start = strrchr(PUBLISH.torrent, '/') + 1;
@@ -470,30 +524,114 @@ void addDownload(void) {
     free(cmd);
 
     // create .upload to identify that script will upload this file to baidu.
-    cmd = (char *)malloc(sizeof(char) * (len_createfile + strlen(PUBLISH.filename) + strlen(DLDIR)));
+    cmd = (char *)malloc(sizeof(char) * (len_createfile + strlen(PUBLISH.filename) * 2 + strlen(DLDIR) * 2));
     memset(cmd, 0, sizeof(cmd));
-    sprintf(cmd, "touch '%s%s.upload'", DLDIR, PUBLISH.filename);
+    sprintf(cmd, "rm -f '%s%s.upload';sudo -u apache touch '%s%s.upload'", DLDIR, PUBLISH.filename, DLDIR, PUBLISH.filename);
     system(cmd);
+
+    // output post title to upload config
+    memset(cmd, 0, sizeof(cmd));
+    sprintf(cmd, "%s%s.upload", DLDIR, PUBLISH.filename);
+    fp_config = fopen(cmd, "a");
+    if (fp_config == NULL) {printf(MSG_ERROR"Cannot open upload config.\n"); exit(1);}
+    fprintf(fp_config, "%s\n", PUBLISH.ptitle);
+
+    // output sub-post content to upload config
+    memset(cmd, 0, sizeof(cmd));
+    strcpy(cmd, POST_FILE);
+    fp_post = fopen(cmd, "r");
+    if (fp_post == NULL) {printf(MSG_ERROR"Cannot open post content.\n"); exit(1);}
+
+    cnt = 0;
+    fin = false;
+    while (fgets(buf, sizeof(buf), fp_post) != NULL) {
+        
+        rm_newline(buf);
+        if (strcmp(buf, POST_DELIMIT) == 0) cnt++;
+        if (cnt == PUBLISH.order) {
+            
+            while (1) {
+
+                fgets(buf, sizeof(buf), fp_post);
+                rm_newline(buf);
+                if (strcmp(buf, POST_DELIMIT) == 0) {fin = true; break;}
+                fprintf(fp_config, "%s\n", buf);
+
+            }
+            if (fin) break;
+            
+        }
+        
+    }
+    fclose(fp_post);
+
+    // output start download time to upload config
+    fprintf(fp_config, "%ld ", dl_start);
+    fclose(fp_config);
     free(cmd);
 
 }
 
 /*
- *  Check whether the publish is new. (GMT)
+ *  Show the last checkpoint time.
  *  Input:  none
  *  Output: none
  */ 
-bool checknew(void) {
+void show_lasttime(void) {
 
-    TIME T;
-    time_t rawtime_tar;
+    FILE * fp_time;
+    char buf[BUF_SIZE];
+
+    fp_time = fopen(TIMESTAMP_FILE, "r");
+    if (fp_time == NULL) {
+
+        // if no checkpoint exist
+        printf("First Run.\n");
+        fp_time = fopen(TIMESTAMP_FILE, "w");
+        if (fp_time == NULL) {printf(MSG_ERROR"Cannot create checkpoint.\n"); exit(1);}
+        fprintf(fp_time, "%ld\n", CUR_TIME);
+        LAST_TIME = CUR_TIME;
+        
+    } else {
+
+        // read checkpoint
+        fgets(buf, sizeof(buf), fp_time);
+        rm_newline(buf);
+        LAST_TIME = atol(buf);
+
+    }
+
+    fclose(fp_time);
+    printf(MSG_LASTIME"%s", asctime(localtime(&LAST_TIME)));
+
+}
+
+/*
+ *  Update the checkpoint with current time.
+ *  Input:  none
+ *  Output: none
+ */ 
+void update_checkpoint(void) {
+
+    FILE * fp_time;
+    fp_time = fopen(TIMESTAMP_FILE, "w");
+    if (fp_time == NULL) {printf(MSG_ERROR"Cannot open checkpoint file.\n"); exit(1);}
+    fprintf(fp_time, "%ld\n", CUR_TIME);
+    fclose(fp_time);
+
+}
+
+time_t translate_time(const char const * str) {
+
     char * start, * end;
     char temp[BUF_SIZE];
-    
+    int mday, mon, year, hour;
+    TIME T;
+
     T.tm_isdst = 0;
 
     // parse mday
-    start = strchr(PUBLISH.pubDate, ' ') + 1;
+    start = strchr(str, ' ') + 1;
     end = strchr(start, ' ');
     memset(temp, 0, sizeof(temp));
     strncpy(temp, start, end - start); 
@@ -570,60 +708,7 @@ bool checknew(void) {
 
         }
     }
-    
-    rawtime_tar = mktime(&T);   // get target timestamp
-    //printf("%ld %ld\n", rawtime_tar, LAST_TIME);
-
-    return rawtime_tar > LAST_TIME;
-
-}
-
-/*
- *  Show the last checkpoint time.
- *  Input:  none
- *  Output: none
- */ 
-void show_lasttime(void) {
-
-    FILE * fp_time;
-    char buf[BUF_SIZE];
-
-    fp_time = fopen(TIMESTAMP_FILE, "r");
-    if (fp_time == NULL) {
-
-        // if no checkpoint exist
-        printf("First Run.\n");
-        fp_time = fopen(TIMESTAMP_FILE, "w");
-        if (fp_time == NULL) {printf(MSG_ERROR"Cannot create checkpoint.\n"); exit(1);}
-        fprintf(fp_time, "%ld\n", CUR_TIME);
-        LAST_TIME = CUR_TIME;
-        
-    } else {
-
-        // read checkpoint
-        fgets(buf, sizeof(buf), fp_time);
-        rm_newline(buf);
-        LAST_TIME = atol(buf);
-
-    }
-
-    fclose(fp_time);
-    printf(MSG_LASTIME"%s", asctime(localtime(&LAST_TIME)));
-
-}
-
-/*
- *  Update the checkpoint with current time.
- *  Input:  none
- *  Output: none
- */ 
-void update_checkpoint(void) {
-
-    FILE * fp_time;
-    fp_time = fopen(TIMESTAMP_FILE, "w");
-    if (fp_time == NULL) {printf(MSG_ERROR"Cannot open checkpoint file.\n"); exit(1);}
-    fprintf(fp_time, "%ld\n", CUR_TIME);
-    fclose(fp_time);
+    PUBLISH.pubTime = mktime(&T);   // get target timestamp
 
 }
 
