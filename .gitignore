@@ -20,4 +20,5 @@ start.sh
 stop.sh
 tracker.sh
 update_tracker.sh
+RSSLIST_timestamp
 .vscode

@@ -11,4 +11,10 @@ function displaytime {
   (( $D > 0 || $H > 0 || $M > 0 )) && printf 'and '
   printf '%d seconds\n' $S
 }
-displaytime $1
+
+STDIN="$(< /dev/stdin)"
+if [ "$1" = "" ]; then 
+  displaytime "$STDIN"
+else
+  displaytime "$1"
+fi

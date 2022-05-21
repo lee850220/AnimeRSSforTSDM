@@ -1,5 +1,5 @@
 # AnimeRSSforTSDM  
-![](https://img.shields.io/badge/tag-v1.3-blue)  ![](https://img.shields.io/badge/maintaince%3F-yes-brightgreen)  [![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg)  
+![](https://img.shields.io/badge/tag-v1.4-blue)  ![](https://img.shields.io/badge/maintaince%3F-yes-brightgreen)  [![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg)  
 This is a project to automatically transfer Anime to Baidu netdisk with some rules on TSDM.
 <br>
 <br>
@@ -11,12 +11,17 @@ Watch this [**post**](https://www.tsdm39.net/forum.php?mod=viewthread&tid=110119
 ![](https://kdrive.ga/index.php/s/32de8CArz5yet5c/download)
 
 # Ongoing
-- Support multiple RSS sites.
 - Auto edit post on TSDM.
 
 # Changelog
-## [[v1.3](https://github.com/lee850220/AnimeRSSforTSDM/commit/e22590f6f66debad06566444b9b7f5ed8add7c4a)] - 2022-05-21
+## [[v1.4](https://github.com/lee850220/AnimeRSSforTSDM/releases/tag/v1.4)] - 2022-05-22
 ### Added
+- Support RSS of NYAA.
+- Show time elapsed for each check.
+
+## [[v1.3](https://github.com/lee850220/AnimeRSSforTSDM/releases/tag/v1.3)] - 2022-05-21
+### Added
+- Support RSS of NYAA.
 - Apply timezone to push notifications.
 - Auto identify episode for post title.
 - Auto move files to each series folder on Baidu Netdisk.

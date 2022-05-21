@@ -31,20 +31,21 @@
 #define CERT_PATH           "/etc/aria2/intermediate.pem"
 #define DLDIR               "/NAS/Aria2/"
 #define ARIA2_CONFIG        "/etc/aria2/aria2.conf"
+#define POST_FILE           "/etc/aria2/post.txt"
 #define TIMESTAMP_FILE      "/etc/aria2/checkpoint"
+#define FILENAME_CTIME      "/etc/aria2/convertime.sh"
 #define FILENAME_LIST       "/etc/aria2/RSSLIST.txt"
 #define FILENAME_RSSTIME    "/etc/aria2/RSSLIST_timestamp"
-#define POST_FILE           "/etc/aria2/post.txt"
-#define PRETTY_XML          "/etc/aria2/prettyXML.py"
+#define FILENAME_GETFNAME   "/etc/aria2/getfilename.sh"
+#define FILENAME_URLENC     "/etc/aria2/URLdecode.py"
+#define FILENAME_PXML       "/etc/aria2/prettyXML.py"
 #define CMD_MOVETS          "mv "FILENAME_RSSTIME"_tmp "FILENAME_RSSTIME
 
 #define POST_DELIMIT        "$$$$$"
 #define ITEM_HEAD           "<item>"
 #define ITEM_END            "</item>"
-#define TITLE_HEAD          "<title>"
-#define LINK_HEAD           "<link>"
-#define PUBDATE_HEAD        "<pubDate>"
-#define ENCLOSURE           "<enclosure"
+#define BANGUMI             "bangumi.moe"
+#define NYAA                "nyaa.si"
 
 #define MSG_SUCCESS         COLOR_GREEN"Success"COLOR_RESET
 #define MSG_FAIL            COLOR_RED"Fail"COLOR_RESET
@@ -61,6 +62,10 @@
 #define LINE                "---------------------------------------------"
 #define DLINE               "============================================="
 
+enum mode {
+    MODE_BANGUMI = 1,
+    MODE_NYAA
+};
 
 struct entry {
 
@@ -114,13 +119,14 @@ publish     PUBLISH;
 
 const int   len_rss         = strlen("python3 /etc/aria2/test.py ") + 1;
 const int   len_torrent     = strlen("wget -qO- '' | grep 會員專用連接") + 1;
+const int   len_torrentname = strlen("python3  $(./getfilename.sh ) | sed 's/.*\"\\(.*\\)\".$/\\1/'") + 1;
 const int   len_filename    = strlen("transmission-show  | grep Name | head -1") + 1;
 const int   len_filename_c  = strlen("transmission-show \"\" &> /dev/null;echo $?") + 1;
 const int   len_createfile  = strlen("rm -f '.upload'sudo -u apache touch '.upload'") + 1;
 const int   len_notify      = strlen("curl -sX POST ''" \
-                                         " --header 'Content-Type: application/x-www-form-urlencoded'" \
-                                         " --header 'Authorization: Bearer '" \
-                                         " --data-urlencode 'Message='") + 1;
+                                        " --header 'Content-Type: application/x-www-form-urlencoded'" \
+                                        " --header 'Authorization: Bearer '" \
+                                        " --data-urlencode 'Message='") + 1;
 const int   len_req         = strlen("curl -X POST ''" \
                                           "-w \" Status: %{http_code}\"" \
                                           "-d '{\"jsonrpc\": \"\"," \
@@ -128,26 +134,31 @@ const int   len_req         = strlen("curl -X POST ''" \
                                                "\"id\": \"\"," \
                                                "\"params\": [\"token:\"," \
                                                            "[\"\"]]}'" \
-                                          "--cacert ") + 1;
+                                         "--cacert ") + 1;
 
-void    readToken          (void);
-void    getRSS             (void);
-void    getXML             (const char * const);
-void    rm_newline         (char *);
-void    create_item        (FILE *);
-void    push_notify        (void);
-void    gettorrent         (void);
-void    addDownload        (void);
-void    show_lasttime      (void);
-void    update_checkpoint  (void);
-time_t  translate_time     (const char const *);
-int     number_for_key     (char *);
-void    rmspace            (char *);
-void    printline          (void);
-void    printdline         (void);
+void    readToken           (void);
+void    getRSS              (void);
+void    getXML              (const char * const);
+void    rm_newline          (char *);
+void    create_item         (FILE *);
+void    push_notify         (void);
+void    gettorrent          (void);
+void    addDownload         (void);
+void    show_lasttime       (void);
+void    update_checkpoint   (void);
+int     check_source        (const char const *);
+time_t  translate_time      (const char const *);
+void    convert_time        (char *, time_t);
+int     number_for_key      (char *);
+void    rmspace             (char *);
+void    printline           (void);
+void    printdline          (void);
 
 
 int main(int argc, char *argv[]) {
+
+    char buf[BUF_SIZE];
+    time_t terminated;
 
     // print time info
     time(&CUR_TIME);
@@ -163,8 +174,9 @@ int main(int argc, char *argv[]) {
     
     // update checkpoint
     update_checkpoint();
-    system(CMD_MOVETS);
-    printf("Checked %d RSS, and %d has published new episode.\n", RSS_CNT, RSS_PUB_CNT);
+    time(&terminated);
+    convert_time(buf, terminated - CUR_TIME);
+    printf("Checked %d RSS, and %d has new. Time Elapsed: %s\n", RSS_CNT, RSS_PUB_CNT, buf);
     printdline();
     return 0;
 
@@ -229,6 +241,8 @@ void getRSS(void) {
 
     fp_list = fopen(FILENAME_LIST, "r");
     fp_tlist = fopen(FILENAME_RSSTIME, "r");
+    fp_ttlist = fopen(FILENAME_RSSTIME"_tmp", "r");
+    if (fp_ttlist != NULL) {printf(MSG_ERROR"There is another process running.\n"); exit(1);}
     if (fp_list == NULL) {printf(MSG_ERROR"Cannot open RSSLIST.\n"); exit(1);}
     memset(PUBLISH.ptitle, 0, sizeof(PUBLISH.ptitle));
 
@@ -258,23 +272,24 @@ void getRSS(void) {
         
             fgets(buf, sizeof(buf), fp_tlist);
             rm_newline(buf);
-            PUBLISH.lastPub = atol(buf);
+            if (!strcmp(buf, ""))   PUBLISH.lastPub = CUR_TIME;
+            else                    PUBLISH.lastPub = atol(buf);
         
         } else {PUBLISH.lastPub = CUR_TIME;}
-        //printline();
+
         RSS_CNT++;
         getXML(URL_RSS); // get RSS push info
-
+        
         // update last publish timestamp
-        fp_ttlist = fopen(FILENAME_RSSTIME"_tmp", "a+");
+        fp_ttlist = fopen(FILENAME_RSSTIME"_tmp", "a");
         if (fp_ttlist == NULL) {printf(MSG_ERROR"Cannot create RSS timestamp temp file.\n"); exit(1); }
         fprintf(fp_ttlist, "%ld\n", PUBLISH.lastPub);
         fclose(fp_ttlist);
-        //printdline();
 
     }
     fclose(fp_list);
     if (fp_tlist != NULL) fclose(fp_tlist);
+    system(CMD_MOVETS);
 
 }
 
@@ -287,13 +302,15 @@ void getXML(const char * const URL) {
 
     FILE * fp_xml;
     time_t temp;
-    bool top = true;
+    int mode;
+    bool top = true, hasNew = false;
     char buf[BUF_SIZE];
-    char * cmd = (char *)malloc(sizeof(char) * (len_rss + strlen(PRETTY_XML) + strlen(URL)));
+    char * cmd = (char *)malloc(sizeof(char) * (len_rss + strlen(FILENAME_PXML) + strlen(URL)));
     memset(cmd, 0, sizeof(cmd));
-    sprintf(cmd, "python3 %s \"%s\"", PRETTY_XML, URL);
+    sprintf(cmd, "python3 %s \"%s\"", FILENAME_PXML, URL);
     fp_xml = popen(cmd, "r");
     if (fp_xml == NULL) {printf(MSG_ERROR"Get XML failed.\n"); exit(1);}
+    
     while (fgets(buf, sizeof(buf), fp_xml) != NULL) {
         
         rm_newline(buf);
@@ -304,16 +321,17 @@ void getXML(const char * const URL) {
             if (top) temp = PUBLISH.pubTime;
             top = false;
             if (PUBLISH.pubTime <= LAST_TIME && PUBLISH.pubTime <= PUBLISH.lastPub) break;
-            RSS_PUB_CNT++;
-            printf(MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle);
+            printf("%ld %ld\n", PUBLISH.pubTime, PUBLISH.lastPub, CUR_TIME);
+            if (!hasNew) {printf(MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle); printline();}
+            if (hasNew)  printline();
+            hasNew = true;
             push_notify();
             addDownload();
-            printline();
-            printdline();
 
         }        
 
     }
+    if (hasNew) {RSS_PUB_CNT++; printdline();}
     PUBLISH.lastPub = temp;
     pclose(fp_xml);
     free(cmd);
@@ -327,53 +345,110 @@ void getXML(const char * const URL) {
  */   
 void create_item(FILE * fp) {
 
+    int mode;
     char buf[BUF_SIZE];
     char * start, * end;
+    char * title_head, * title_start, title_end;
 
-    while (fgets(buf, sizeof(buf), fp) != NULL) {
-        
-        rm_newline(buf);
+    mode = check_source(URL_RSS);
 
-        // read title
-        if (strstr(buf, TITLE_HEAD)) {
+    if (mode == MODE_BANGUMI) {
 
-            fgets(buf, sizeof(buf), fp);
+        while (fgets(buf, sizeof(buf), fp) != NULL) {
+            
             rm_newline(buf);
-            start = strstr(buf, "CDATA[") + strlen("CDATA[");
-            end = strstr(buf, "]]>");
-            memset(PUBLISH.title, 0, sizeof(PUBLISH.title));
-            strncpy(PUBLISH.title, start, end - start);
 
-        } 
-        // read link
-        else if (strstr(buf, LINK_HEAD)) {
+            // read title
+            if (strstr(buf, "<title>")) {
 
-            start = strchr(buf, '>') + 1;
-            end = strrchr(buf, '<');
-            memset(PUBLISH.link, 0, sizeof(PUBLISH.link));
-            strncpy(PUBLISH.link, start, end - start); 
+                fgets(buf, sizeof(buf), fp);
+                rm_newline(buf);
+                start = strstr(buf, "CDATA[") + strlen("CDATA[");
+                end = strstr(buf, "]]>");
+                memset(PUBLISH.title, 0, sizeof(PUBLISH.title));
+                strncpy(PUBLISH.title, start, end - start);
+
+            } 
+            // read link
+            else if (strstr(buf, "<link>")) {
+
+                start = strchr(buf, '>') + 1;
+                end = strrchr(buf, '<');
+                memset(PUBLISH.link, 0, sizeof(PUBLISH.link));
+                strncpy(PUBLISH.link, start, end - start); 
+
+            }
+            // read pubDate
+            else if (strstr(buf, "<pubDate>")) {
+
+                char temp[BUF_SIZE];
+                start = strchr(buf, '>') + 1;
+                end = strrchr(buf, '<');
+                memset(temp, 0, sizeof(temp));
+                strncpy(temp, start, end - start); 
+                PUBLISH.pubTime = translate_time(temp);
+
+            }
+            // read torrent link
+            else if (strstr(buf, "<enclosure")) {
+
+                start = strstr(buf, "url=") + 5;
+                end = strchr(buf, '>') - 2;
+                memset(PUBLISH.torrent, 0, sizeof(PUBLISH.torrent));
+                strncpy(PUBLISH.torrent, start, end - start);
+
+            }
+            else if (strstr(buf, ITEM_END)) break;
 
         }
-        // read pubDate
-        else if (strstr(buf, PUBDATE_HEAD)) {
+    
+    } else if (mode == MODE_NYAA) {
 
-            char temp[BUF_SIZE];
-            start = strchr(buf, '>') + 1;
-            end = strrchr(buf, '<');
-            memset(temp, 0, sizeof(temp));
-            strncpy(temp, start, end - start); 
-            PUBLISH.pubTime = translate_time(temp);
+        while (fgets(buf, sizeof(buf), fp) != NULL) {
+            
+            rm_newline(buf);
+
+            // read title
+            if (strstr(buf, "<title>")) {
+                
+                start = strchr(buf, '>') + 1;
+                end = strrchr(buf, '<');
+                memset(PUBLISH.title, 0, sizeof(PUBLISH.title));
+                strncpy(PUBLISH.title, start, end - start);
+
+            } 
+            // read link
+            else if (strstr(buf, "<guid")) {
+
+                start = strchr(buf, '>') + 1;
+                end = strrchr(buf, '<');
+                memset(PUBLISH.link, 0, sizeof(PUBLISH.link));
+                strncpy(PUBLISH.link, start, end - start); 
+
+            }
+            // read pubDate
+            else if (strstr(buf, "<pubDate>")) {
+
+                char temp[BUF_SIZE];
+                start = strchr(buf, '>') + 1;
+                end = strrchr(buf, '<');
+                memset(temp, 0, sizeof(temp));
+                strncpy(temp, start, end - start); 
+                PUBLISH.pubTime = translate_time(temp);
+
+            }
+            // read torrent link
+            else if (strstr(buf, "<link>")) {
+
+                start = strchr(buf, '>') + 1;
+                end = strrchr(buf, '<');
+                memset(PUBLISH.torrent, 0, sizeof(PUBLISH.torrent));
+                strncpy(PUBLISH.torrent, start, end - start);
+
+            }
+            else if (strstr(buf, ITEM_END)) break;
 
         }
-        else if (strstr(buf, ENCLOSURE)) {
-
-            start = strstr(buf, "url=") + 5;
-            end = strchr(buf, '>') - 2;
-            memset(PUBLISH.torrent, 0, sizeof(PUBLISH.torrent));
-            strncpy(PUBLISH.torrent, start, end - start);
-
-        }
-        else if (strstr(buf, ITEM_END)) break;
 
     }
 
@@ -466,13 +541,11 @@ void addDownload(void) {
     FILE * fp_http_req, * fp_filename, * fp_config, * fp_post;
     bool fin;
     int cnt;
-    char * cmd, * start;
-    char buf[BUF_SIZE], torrent_name[BUF_SIZE], code[4];
+    char * start;
+    char cmd[BUF_SIZE], buf[BUF_SIZE], torrent_name[BUF_SIZE], code[4];
     time_t dl_start;
     
     // send HTTP request to Aria2
-    cmd = (char *)malloc(sizeof(char) * (len_req + strlen(SERVER_URL) + strlen(JSONRPC) + strlen(METHOD) \
-                                                 + strlen(ID) + strlen(ARIA2_TOKEN) + strlen(PUBLISH.torrent) + strlen(CERT_PATH)));
     memset(cmd, 0, sizeof(cmd));
     sprintf(cmd, "curl -sX POST \"%s\" -w \" Status: %{http_code}\" " \
                                       "-d '{\"jsonrpc\":\"%s\"," \
@@ -492,27 +565,33 @@ void addDownload(void) {
     pclose(fp_http_req);
     time(&dl_start); // get download start time
 
+    // get torrent name
+    memset(cmd, 0, sizeof(cmd));
+    sprintf(cmd, "python3 %s $(%s %s) | sed 's/.*\"\\(.*\\)\".$/\\1/'", FILENAME_URLENC, FILENAME_GETFNAME, PUBLISH.torrent);
+    fp_filename = popen(cmd, "r");
+    if (fp_filename == NULL) {printf(MSG_ERROR"Cannot get torrent filename.\n"); exit(1);}
+    fgets(torrent_name, sizeof(torrent_name), fp_filename);
+    rm_newline(torrent_name);
+    pclose(fp_filename);
+    fp_filename = NULL;
+    
     // wait until torrent file downloaded
-    start = strrchr(PUBLISH.torrent, '/') + 1;
-    strcpy(torrent_name, start);
-    cmd = (char *)malloc(sizeof(char) * (len_filename_c + strlen(torrent_name) + strlen(DLDIR)));
     memset(cmd, 0, sizeof(cmd));
     sprintf(cmd, "transmission-show \"%s%s\" &> /dev/null;echo $?", DLDIR, torrent_name);
     while (1) {
 
-        fp_filename = popen(cmd, "r");
-        if (fp_filename == NULL) {printf(MSG_ERROR"Cannot get torrent filename.\n"); exit(1);}
-        fgets(buf, sizeof(buf), fp_filename);
-        pclose(fp_filename);
+        FILE * fpfp;
+        fpfp = popen(cmd, "r");
+        if (fpfp == NULL) {printf(MSG_ERROR"Cannot get torrent filename.\n"); exit(1);}
+        fgets(buf, sizeof(buf), fpfp);
+        pclose(fpfp);
         rm_newline(buf);
         if (buf[0] == '0') break;
         usleep(SLEEP_TIME);
 
     }
-    free(cmd);
     
     // get filename
-    cmd = (char *)malloc(sizeof(char) * (len_filename + strlen(torrent_name) + strlen(DLDIR)));
     memset(cmd, 0, sizeof(cmd));
     sprintf(cmd, "transmission-show \"%s%s\"|grep Name|head -1", DLDIR, torrent_name);
     fp_filename = popen(cmd, "r");
@@ -521,10 +600,8 @@ void addDownload(void) {
     start = strchr(buf, ':') + 2;
     strcpy(PUBLISH.filename, start);
     pclose(fp_filename);
-    free(cmd);
 
     // create .upload to identify that script will upload this file to baidu.
-    cmd = (char *)malloc(sizeof(char) * (len_createfile + strlen(PUBLISH.filename) * 2 + strlen(DLDIR) * 2));
     memset(cmd, 0, sizeof(cmd));
     sprintf(cmd, "rm -f '%s%s.upload';sudo -u apache touch '%s%s.upload'", DLDIR, PUBLISH.filename, DLDIR, PUBLISH.filename);
     system(cmd);
@@ -568,7 +645,6 @@ void addDownload(void) {
     // output start download time to upload config
     fprintf(fp_config, "%ld ", dl_start);
     fclose(fp_config);
-    free(cmd);
 
 }
 
@@ -618,6 +694,36 @@ void update_checkpoint(void) {
     if (fp_time == NULL) {printf(MSG_ERROR"Cannot open checkpoint file.\n"); exit(1);}
     fprintf(fp_time, "%ld\n", CUR_TIME);
     fclose(fp_time);
+
+}
+
+int check_source(const char const * str) {
+
+    char * start, * end;
+    char buf[BUF_SIZE];
+
+    start = strchr(str, ':') + 3;
+    end = strchr(start, '/');
+    memset(buf, 0, sizeof(buf));
+    strncpy(buf, start, end - start);
+    if (!strcmp(buf, BANGUMI)) return MODE_BANGUMI;
+    else if (!strcmp(buf, NYAA)) return MODE_NYAA;
+    else {printf(MSG_ERROR"This site (%s) is not support yet.\n", buf); exit(1);};
+
+}
+
+void convert_time(char * str, time_t t) {
+
+    FILE * fp_time;
+    char buf[BUF_SIZE];
+    
+    memset(buf, 0, sizeof(buf));
+    sprintf(buf, "echo %ld | %s", t, FILENAME_CTIME);
+    fp_time = popen(buf, "r");
+    if (fp_time == NULL) {printf(MSG_ERROR"Cannot convert time.\n"); exit(1);}
+    fgets(buf, sizeof(buf), fp_time);
+    rm_newline(buf);
+    strcpy(str, buf);
 
 }
 
