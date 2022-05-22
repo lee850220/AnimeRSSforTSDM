@@ -7,15 +7,16 @@ UploadConfig="${1}.upload"
 ConfigFile=${ScriptDIR}/aria2.conf
 
 if [ "$2" = "F" ]; then 
-    filename="${filename_ext}"
+    path=$1
 else
-    filename="${filename_ext%.*}"
+    path="${1%/*}/"
 fi
 
 # For RAR
 header=[Inanity緋雪@TSDM]
 PW=Inanity緋雪@僅分享於TSDM
 CommentFile=${ScriptDIR}/comment.txt
+filename="${filename_ext%.*}"
 targetFile=${header}${filename}.rar
 
 # For Baidu
@@ -69,15 +70,37 @@ function RCDOWN {
 }
 
 # Package file by RAR
-echo "${Notice}Packaging \"${filename_ext}\" with RAR..."
-rar a -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${path}${targetFile}" "$1"
+if [ "$2" = "F" ]; then
+    echo "${Notice}Packaging files in \"${filename_ext}\" with RAR seperately..."
+    SAVEIFS=$IFS
+	IFS=$(echo -en "\n\b")
+    for file in $(ls "${path}"/*.m[kp][4v]|sed 's/.*\///'); do
+        echo
+        rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${path}/${header}${file%.*}.rar" "${path}/${file}"
+	done
+    IFS=$SAVEIFS
+    
+else
+    echo "${Notice}Packaging \"${filename_ext}\" with RAR..."
+    rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${path}${targetFile}" "$1"
+fi
 
 # Upload to Baidu
-echo "${Notice}Uploading \"${targetFile}\" via BaiduPCS-Go..."
 UL_START=$(date +%s)
-BaiduPCS-Go upload "${path}${targetFile}" ${uploadDIR}
+if [ "$2" = "F" ]; then
+    echo "${Notice}Uploading files in \"${path}\" via BaiduPCS-Go..."
+    BaiduPCS-Go upload "${path}" ${uploadDIR}
+    targetFile=
+else
+    echo "${Notice}Uploading \"${targetFile}\" via BaiduPCS-Go..."
+    BaiduPCS-Go upload "${path}${targetFile}" ${uploadDIR}
+fi
 UL_FINISH=$(date +%s)
 echo "${Notice}Upload process terminated."
+
+if [ "$2" == "NP" ] || [ "$3" == "NP" ]; then 
+    exit
+fi
 
 # get file ID
 echo "${Notice}Getting file ID..."

@@ -153,6 +153,7 @@ int     number_for_key      (char *);
 void    rmspace             (char *);
 void    printline           (void);
 void    printdline          (void);
+void    cleanenv            (void);
 
 
 int main(int argc, char *argv[]) {
@@ -261,10 +262,10 @@ void getRSS(void) {
                 *pptr++ = 0;
                 PUBLISH.order = atoi(pptr);                 
 
-            } else { printf(MSG_ERROR"Illegal format.\n"); exit(1); }
+            } else { printf(MSG_ERROR"Illegal format.\n"); cleanenv(); }
             strcpy(PUBLISH.ptitle, ptr);
 
-        } else { printf(MSG_ERROR"Illegal format.\n"); exit(1); }
+        } else { printf(MSG_ERROR"Illegal format.\n"); cleanenv(); }
         //printf(MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle);
 
         // get last publish timestamp
@@ -906,6 +907,13 @@ void rmspace(char * str){
     strcpy(str, tmp);
     free(tmp);
 	
+}
+
+void cleanenv(void) {
+
+    system("rm -f "FILENAME_RSSTIME".tmp");
+    exit(1);
+
 }
 
 void printline(void) { printf(LINE""LINE"\n"); }
