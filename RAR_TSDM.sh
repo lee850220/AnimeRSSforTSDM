@@ -90,7 +90,7 @@ UL_START=$(date +%s)
 if [ "$2" = "F" ]; then
     echo "${Notice}Uploading files in \"${path}\" via BaiduPCS-Go..."
     BaiduPCS-Go upload "${path}" ${uploadDIR}
-    targetFile=
+    targetFile=${path}
 else
     echo "${Notice}Uploading \"${targetFile}\" via BaiduPCS-Go..."
     BaiduPCS-Go upload "${path}${targetFile}" ${uploadDIR}
@@ -156,3 +156,15 @@ rm -rfv "${path}${targetFile}"
 EPISODE_NAME=$(echo ${ptitle}|sed 's/[][]/ /g' | awk '{print $2}')
 echo "${Notice}Moving ${targetFile} to /TSDM/${EPISODE_NAME}/${ptitle}..."
 BaiduPCS-Go mv "${uploadDIR}/${targetFile}" "/TSDM/${EPISODE_NAME}/${ptitle}/"
+
+'''
+echo "${Notice}Editing index post on TSDM..."
+#group=$(echo ${ptitle} | sed 's/.*【\(.*\)】.*/\1/')
+group="爱恋&漫猫字幕组"
+group=$(echo $group | sed 's/&/&amp;/g')
+TID=1103066
+PID=66072107
+response=$(curl -sX GET "https://www.tsdm39.net/forum.php?mod=post&action=edit&fid=${FID}&tid=${TID}&pid=${PID}&page=1" --header "${TSDM_Cookie}")
+echo $response | grep -o \<textarea.*\</textarea\> | tr '\n' '!' | sed 's/\r/\n/g' | sed 's/[\>\<]/\n/g' | sed '1,2d' | head -n -2 | tr '\n' '\r' | tr '!' '\n' > res
+#| grep -o \<textarea.*\</textarea\> | tr '\r' '\n' | sed 's/[\>\<]/\n/g' | sed '1,2d' | head -n -2 > res
+'''

@@ -8,7 +8,7 @@
 #include <time.h>
 
 #define BUF_SIZE            1024
-#define SLEEP_TIME          500
+#define SLEEP_TIME          1000
 #define UP                  "\33[A"
 #define ERASE_LINE          "\33[2K\r"
 #define COLOR_RESET         "\033[0m"
@@ -109,6 +109,7 @@ typedef struct tm TIME, * TIME_ptr;
 
 int         RSS_CNT         = 0;
 int         RSS_PUB_CNT     = 0;
+int         MODE;
 char        URL_RSS         [BUF_SIZE];
 char        LINE_TOKEN      [BUF_SIZE];
 char        ARIA2_TOKEN     [BUF_SIZE];
@@ -303,7 +304,6 @@ void getXML(const char * const URL) {
 
     FILE * fp_xml;
     time_t temp;
-    int mode;
     bool top = true, hasNew = false;
     char buf[BUF_SIZE];
     char * cmd = (char *)malloc(sizeof(char) * (len_rss + strlen(FILENAME_PXML) + strlen(URL)));
@@ -322,7 +322,6 @@ void getXML(const char * const URL) {
             if (top) temp = PUBLISH.pubTime;
             top = false;
             if (PUBLISH.pubTime <= LAST_TIME && PUBLISH.pubTime <= PUBLISH.lastPub) break;
-            printf("%ld %ld\n", PUBLISH.pubTime, PUBLISH.lastPub, CUR_TIME);
             if (!hasNew) {printf(MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle); printline();}
             if (hasNew)  printline();
             hasNew = true;
@@ -346,14 +345,13 @@ void getXML(const char * const URL) {
  */   
 void create_item(FILE * fp) {
 
-    int mode;
     char buf[BUF_SIZE];
     char * start, * end;
     char * title_head, * title_start, title_end;
 
-    mode = check_source(URL_RSS);
+    MODE = check_source(URL_RSS);
 
-    if (mode == MODE_BANGUMI) {
+    if (MODE == MODE_BANGUMI) {
 
         while (fgets(buf, sizeof(buf), fp) != NULL) {
             
@@ -403,7 +401,7 @@ void create_item(FILE * fp) {
 
         }
     
-    } else if (mode == MODE_NYAA) {
+    } else if (MODE == MODE_NYAA) {
 
         while (fgets(buf, sizeof(buf), fp) != NULL) {
             
@@ -568,11 +566,13 @@ void addDownload(void) {
 
     // get torrent name
     memset(cmd, 0, sizeof(cmd));
-    sprintf(cmd, "python3 %s $(%s %s) | sed 's/.*\"\\(.*\\)\".$/\\1/'", FILENAME_URLENC, FILENAME_GETFNAME, PUBLISH.torrent);
+    if (MODE == MODE_NYAA)          sprintf(cmd, "python3 %s $(%s %s)", FILENAME_URLENC, FILENAME_GETFNAME, PUBLISH.torrent);
+    else if (MODE == MODE_BANGUMI)  sprintf(cmd, "basename \"$(echo \"%s\")\"", PUBLISH.torrent);
     fp_filename = popen(cmd, "r");
     if (fp_filename == NULL) {printf(MSG_ERROR"Cannot get torrent filename.\n"); exit(1);}
     fgets(torrent_name, sizeof(torrent_name), fp_filename);
     rm_newline(torrent_name);
+    printf("%s\n", torrent_name);
     pclose(fp_filename);
     fp_filename = NULL;
     
@@ -585,6 +585,7 @@ void addDownload(void) {
         fpfp = popen(cmd, "r");
         if (fpfp == NULL) {printf(MSG_ERROR"Cannot get torrent filename.\n"); exit(1);}
         fgets(buf, sizeof(buf), fpfp);
+        //printf("buf=%s\n", buf);
         pclose(fpfp);
         rm_newline(buf);
         if (buf[0] == '0') break;
