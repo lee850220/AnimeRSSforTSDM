@@ -780,41 +780,50 @@ time_t translate_time(const char const * str) {
     strncpy(temp, start, end - start);
     T.tm_sec = atoi(temp);
 
-    // apply timezone
-    T.tm_hour += TIMEZONE;
-    if (T.tm_hour > 23) {
+    // check timezone
+    start = end + 1;
+    memset(temp, 0, sizeof(temp));
+    strcpy(temp, start);
+    if (!strcmp(temp, "GMT")) {
 
-        T.tm_hour %= 24;
-        T.tm_mday++;
-        if (T.tm_mday > 31) {
+        // apply timezone
+        T.tm_hour += TIMEZONE;
+        if (T.tm_hour > 23) {
 
-            T.tm_mday %= 31;
-            T.tm_mon++;
-            if (T.tm_mon > 11) {
+            T.tm_hour %= 24;
+            T.tm_mday++;
+            if (T.tm_mday > 31) {
 
-                T.tm_mon %= 12;
-                T.tm_year++;
+                T.tm_mday %= 31;
+                T.tm_mon++;
+                if (T.tm_mon > 11) {
+
+                    T.tm_mon %= 12;
+                    T.tm_year++;
+
+                }
 
             }
 
-        }
+        } else if (T.tm_hour < 0) {
 
-    } else if (T.tm_hour < 0) {
+            T.tm_mday--;
+            T.tm_hour += 24;
+            if (T.tm_mday < 1) {
 
-        T.tm_mday--;
-        T.tm_hour += 24;
-        if (T.tm_mday < 1) {
+                T.tm_mon--;
+                T.tm_mday += 31;
+                if (T.tm_mon < 0) {
 
-            T.tm_mon--;
-            T.tm_mday += 31;
-            if (T.tm_mon < 0) {
+                    T.tm_year--;
+                    T.tm_mon += 12;
+                    
+                }
 
-                T.tm_year--;
-                T.tm_mon += 12;
-                
             }
-
+            
         }
+
     }
     PUBLISH.pubTime = mktime(&T);   // get target timestamp
 
