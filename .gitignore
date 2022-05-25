@@ -22,4 +22,5 @@ tracker.sh
 update_tracker.sh
 RSSLIST_timestamp
 RSSLIST_timestamp_tmp
+TSDM.lock
 .vscode

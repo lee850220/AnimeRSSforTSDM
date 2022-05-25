@@ -49,7 +49,9 @@
 
 #define MSG_SUCCESS         COLOR_GREEN"Success"COLOR_RESET
 #define MSG_FAIL            COLOR_RED"Fail"COLOR_RESET
+#define MSG_FAIL_N          "Fail"
 #define MSG_ERROR           COLOR_RED"[ERROR]: "COLOR_RESET
+#define MSG_ERROR_N         "[ERROR]: "
 #define MSG_NOTICE          COLOR_LIGHTBLUE"[Notice]:        "COLOR_RESET
 #define MSG_RSS             COLOR_YELLOW"[RSS PATH]:      "COLOR_RESET
 #define MSG_TITLE           COLOR_PURPLE"[Title]:         "COLOR_RESET
@@ -59,6 +61,7 @@
 #define MSG_LASTIME         "[Check Time]:    "
 #define MSG_LINE            "{PUSH to LINE}="
 #define MSG_ADDTASK         "{Add torrent to Aria2}="
+#define MSG_PUSH            ", pushing to LINE...\n"
 #define LINE                "---------------------------------------------"
 #define DLINE               "============================================="
 
@@ -118,7 +121,7 @@ time_t      LAST_TIME;
 time_t      DL_START;
 publish     PUBLISH;
 
-const int   len_rss         = strlen("python3 /etc/aria2/test.py ") + 1;
+const int   len_rss         = strlen("python3  \"\";echo $?") + 1;
 const int   len_torrent     = strlen("wget -qO- '' | grep 會員專用連接") + 1;
 const int   len_torrentname = strlen("python3  $(./getfilename.sh ) | sed 's/.*\"\\(.*\\)\".$/\\1/'") + 1;
 const int   len_filename    = strlen("transmission-show  | grep Name | head -1") + 1;
@@ -142,11 +145,12 @@ void    getRSS              (void);
 void    getXML              (const char * const);
 void    rm_newline          (char *);
 void    create_item         (FILE *);
-void    push_notify         (void);
 void    gettorrent          (void);
 void    addDownload         (void);
 void    show_lasttime       (void);
 void    update_checkpoint   (void);
+void    task_notify         (void);
+void    push_notify         (const char const *);
 int     check_source        (const char const *);
 time_t  translate_time      (const char const *);
 void    convert_time        (char *, time_t);
@@ -308,13 +312,14 @@ void getXML(const char * const URL) {
     char buf[BUF_SIZE];
     char * cmd = (char *)malloc(sizeof(char) * (len_rss + strlen(FILENAME_PXML) + strlen(URL)));
     memset(cmd, 0, sizeof(cmd));
-    sprintf(cmd, "python3 %s \"%s\"", FILENAME_PXML, URL);
+    sprintf(cmd, "python3 %s \"%s\";echo $?", FILENAME_PXML, URL);
     fp_xml = popen(cmd, "r");
     if (fp_xml == NULL) {printf(MSG_ERROR"Get XML failed.\n"); exit(1);}
     
     while (fgets(buf, sizeof(buf), fp_xml) != NULL) {
         
         rm_newline(buf);
+        if (top && buf[0] == '@') {printf(MSG_ERROR"Failed to get RSS"MSG_PUSH); push_notify(MSG_ERROR_N"Failed to get RSS.\n"); exit(1);}
 
         // parse item block
         if (strstr(buf, ITEM_HEAD)) {
@@ -325,7 +330,7 @@ void getXML(const char * const URL) {
             if (!hasNew) {printf(MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle); printline();}
             if (hasNew)  printline();
             hasNew = true;
-            push_notify();
+            task_notify();
             addDownload();
 
         }        
@@ -454,47 +459,6 @@ void create_item(FILE * fp) {
 }
 
 /*
- *  Show information of Push info and push notification to LINE.
- *  Input:  none
- *  Output: none
- */   
-void push_notify(void) {
-
-    FILE * fp_notify;
-    char msg[BUF_SIZE], buf[BUF_SIZE], code[4];
-    char * start, * end;
-    char * cmd = (char *)malloc(sizeof(char) * (len_notify + strlen(LINE_TOKEN) + strlen(LINE_API) + BUF_SIZE));
-    
-    memset(cmd, 0, sizeof(cmd));
-    memset(msg, 0, sizeof(msg));
-    memset(buf, 0, sizeof(buf));
-
-    strftime(buf, BUF_SIZE, "%Y/%m/%d %H:%M:%S (%a)", localtime(&PUBLISH.pubTime));
-    printf(MSG_TITLE"%s\n", PUBLISH.title);
-    printf(MSG_PUBDATE"%s\n", buf);
-    printf(MSG_TORRENT"%s\n", PUBLISH.torrent); 
-    sprintf(msg, "\n[Title]： %s\n[PubDate]： %s\n[URL]： %s", PUBLISH.title, buf, PUBLISH.link);
-    sprintf(cmd, "curl -sX POST '%s'" \
-                    " --header 'Content-Type: application/x-www-form-urlencoded'" \
-                    " --header 'Authorization: Bearer %s'" \
-                    " --data-urlencode 'Message=%s'", LINE_API, LINE_TOKEN, msg);
-
-    fp_notify = popen(cmd, "r");
-    if (fp_notify == NULL) {printf(MSG_ERROR"Send notify to LINE failed.\n"); exit(1);}
-    fgets(buf, sizeof(buf), fp_notify);
-    rm_newline(buf);
-    start = strstr(buf, "status\":") + strlen("status\":");
-    end = strchr(buf, ',');
-    memset(code, 0, sizeof(code));
-    strncpy(code, start, end - start);
-    if (atoi(code) == HTTPCODE_OK) printf(MSG_NOTICE""MSG_LINE""MSG_SUCCESS"\n");
-    else                           printf(MSG_ERROR""MSG_LINE""MSG_FAIL"\n");
-    fclose(fp_notify);
-    free(cmd);
-    
-}
-
-/*
  *  (Deprecated) Get torrent link in publish website for DMHY.
  *  Input:  none
  *  Output: none
@@ -559,8 +523,8 @@ void addDownload(void) {
     memset(code, 0, sizeof(code));
     start = strrchr(buf, ':') + 1;
     strcpy(code, start);
-    if (atoi(code) == HTTPCODE_OK) printf(MSG_NOTICE""MSG_ADDTASK""MSG_SUCCESS"\n");
-    else                           printf(MSG_NOTICE""MSG_ADDTASK""MSG_FAIL"\n");
+    if (atoi(code) == HTTPCODE_OK)  printf(MSG_NOTICE""MSG_ADDTASK""MSG_SUCCESS"\n");
+    else                           {printf(MSG_NOTICE""MSG_ADDTASK""MSG_FAIL""MSG_PUSH); push_notify(MSG_ERROR_N""MSG_ADDTASK""MSG_FAIL_N"\n"); exit(1);}
     pclose(fp_http_req);
     time(&dl_start); // get download start time
 
@@ -697,6 +661,51 @@ void update_checkpoint(void) {
     fprintf(fp_time, "%ld\n", CUR_TIME);
     fclose(fp_time);
 
+}
+
+void task_notify(void) {
+
+    char buf[BUF_SIZE], msg[BUF_SIZE];
+    strftime(buf, BUF_SIZE, "%Y/%m/%d %H:%M:%S (%a)", localtime(&PUBLISH.pubTime));
+    printf(MSG_TITLE"%s\n", PUBLISH.title);
+    printf(MSG_PUBDATE"%s\n", buf);
+    printf(MSG_TORRENT"%s\n", PUBLISH.torrent); 
+    sprintf(msg, "\n[Title]： %s\n[PubDate]： %s\n[URL]： %s", PUBLISH.title, buf, PUBLISH.link);
+    push_notify(msg);
+
+}
+
+/*
+ *  Show information of Push info and push notification to LINE.
+ *  Input:  none
+ *  Output: none
+ */   
+void push_notify(const char const * msg) {
+
+    FILE * fp_notify;
+    char code[4], buf[BUF_SIZE];
+    char * start, * end;
+    char * cmd = (char *)malloc(sizeof(char) * (len_notify + strlen(LINE_TOKEN) + strlen(LINE_API) + BUF_SIZE));
+    
+    memset(cmd, 0, sizeof(cmd));
+    sprintf(cmd, "curl -sX POST '%s'" \
+                    " --header 'Content-Type: application/x-www-form-urlencoded'" \
+                    " --header 'Authorization: Bearer %s'" \
+                    " --data-urlencode 'Message=%s'", LINE_API, LINE_TOKEN, msg);
+
+    fp_notify = popen(cmd, "r");
+    if (fp_notify == NULL) {printf(MSG_ERROR"Send notify to LINE failed.\n"); exit(1);}
+    fgets(buf, sizeof(buf), fp_notify);
+    rm_newline(buf);
+    start = strstr(buf, "status\":") + strlen("status\":");
+    end = strchr(buf, ',');
+    memset(code, 0, sizeof(code));
+    strncpy(code, start, end - start);
+    if (atoi(code) == HTTPCODE_OK) printf(MSG_NOTICE""MSG_LINE""MSG_SUCCESS"\n");
+    else                           printf(MSG_ERROR""MSG_LINE""MSG_FAIL"\n");
+    fclose(fp_notify);
+    free(cmd);
+    
 }
 
 int check_source(const char const * str) {

@@ -143,7 +143,7 @@ DLTIME=$(${ScriptDIR}/convertime.sh $((${DL_FINISH}-${DL_START})))
 ULTIME=$(${ScriptDIR}/convertime.sh $((${UL_FINISH}-${UL_START})))
 curl -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task has been completed.
-[Task]：     ${ptitle}
+[Task]：     ${pmtitle}
 [TSDM]：    https://www.tsdm39.net/forum.php?mod=viewthread&tid=${TID}
 [Baidu]：    ${LINK}
 [PW]：       ${sharePW}
