@@ -319,7 +319,18 @@ void getXML(const char * const URL) {
     while (fgets(buf, sizeof(buf), fp_xml) != NULL) {
         
         rm_newline(buf);
-        if (top && buf[0] == '@') {printf(MSG_ERROR"Failed to get RSS"MSG_PUSH); push_notify(MSG_ERROR_N"Failed to get RSS.\n"); exit(1);}
+	// if fail to get XML
+        if (top && buf[0] == '@') {
+    
+            char tmp[BUF_SIZE];
+            memset(tmp, 0, sizeof(tmp));
+            sprintf(tmp, "rm -f \"%s_tmp\"", FILENAME_RSSTIME);
+            system(tmp);
+            printf(MSG_ERROR"Failed to get RSS (%s)"MSG_PUSH, buf + 1); 
+            push_notify(MSG_ERROR_N"Failed to get RSS.\n"); 
+            exit(1);
+        
+        }
 
         // parse item block
         if (strstr(buf, ITEM_HEAD)) {
