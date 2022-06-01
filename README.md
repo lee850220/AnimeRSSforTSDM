@@ -8,7 +8,7 @@ Watch this [**post**](https://www.tsdm39.net/forum.php?mod=viewthread&tid=110119
 <br>
 
 # System Flow Chart
-![](https://kdrive.ga/index.php/s/32de8CArz5yet5c/download)
+![](https://kdrive.ga/index.php/s/RSSAnimeTSDM_Diagram/download)
 
 # Ongoing
 - Auto edit post on TSDM.
