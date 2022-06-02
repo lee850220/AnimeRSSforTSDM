@@ -29,7 +29,7 @@
 #define ID                  "root"
 
 #define CERT_PATH           "/etc/aria2/intermediate.pem"
-#define DLDIR               "/NAS/Aria2/"
+#define DLDIR               "/kcloud/Aria2/"
 #define ARIA2_CONFIG        "/etc/aria2/aria2.conf"
 #define POST_FILE           "/etc/aria2/post.txt"
 #define TIMESTAMP_FILE      "/etc/aria2/checkpoint"
@@ -376,7 +376,8 @@ void create_item(FILE * fp) {
             // read title
             if (strstr(buf, "<title>")) {
 
-                fgets(buf, sizeof(buf), fp);
+                //fgets(buf, sizeof(buf), fp);
+                printf("%s\n",buf);
                 rm_newline(buf);
                 start = strstr(buf, "CDATA[") + strlen("CDATA[");
                 end = strstr(buf, "]]>");
@@ -408,7 +409,7 @@ void create_item(FILE * fp) {
             else if (strstr(buf, "<enclosure")) {
 
                 start = strstr(buf, "url=") + 5;
-                end = strchr(buf, '>') - 2;
+                end = strchr(start, '"');
                 memset(PUBLISH.torrent, 0, sizeof(PUBLISH.torrent));
                 strncpy(PUBLISH.torrent, start, end - start);
 
@@ -541,13 +542,12 @@ void addDownload(void) {
 
     // get torrent name
     memset(cmd, 0, sizeof(cmd));
-    if (MODE == MODE_NYAA)          sprintf(cmd, "python3 %s $(%s %s)", FILENAME_URLENC, FILENAME_GETFNAME, PUBLISH.torrent);
+    if (MODE == MODE_NYAA)          sprintf(cmd, "%s %s", FILENAME_GETFNAME, PUBLISH.torrent);
     else if (MODE == MODE_BANGUMI)  sprintf(cmd, "basename \"$(echo \"%s\")\"", PUBLISH.torrent);
     fp_filename = popen(cmd, "r");
     if (fp_filename == NULL) {printf(MSG_ERROR"Cannot get torrent filename.\n"); exit(1);}
     fgets(torrent_name, sizeof(torrent_name), fp_filename);
     rm_newline(torrent_name);
-    printf("%s\n", torrent_name);
     pclose(fp_filename);
     fp_filename = NULL;
     

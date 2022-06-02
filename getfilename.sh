@@ -3,6 +3,7 @@
 #    grep "Content-Disposition:" | tail -1 | 
 #    sed 's/.*filename="\(.*\)".*/\1/'
 url="$1"
-filename=$(curl -gO -J -L "$url" 2> /dev/null | sed "s/.*'\(.*\)'.*/\1/")
-echo $filename
-rm -f $filename
+filename=$(curl -vgJOL "$url" |& grep filename | sed 's/.*"\(.*\)".*/\1/g')
+parse=$(python3 /etc/aria2/URLdecode.py "$filename")
+echo "$parse"
+rm -f /etc/aria2/$filename

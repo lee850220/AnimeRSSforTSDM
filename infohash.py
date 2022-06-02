@@ -1,14 +1,10 @@
-import sys, os, hashlib, StringIO
-import bencode
- 
- 
- 
-def main():
-    # Open torrent file
-    torrent_file = open(sys.argv[1], "rb")
-    metainfo = bencode.bdecode(torrent_file.read())
-    info = metainfo['info']
-    print hashlib.sha1(bencode.bencode(info)).hexdigest()    
- 
-if __name__ == "__main__":
-    main()
+import bencoding
+from io import BytesIO
+import binascii
+import hashlib, sys
+
+with open(sys.argv[1], "rb") as f:
+    data = bencoding.bdecode(f.read())
+info = data[b'info']
+hashed_info = hashlib.sha1(bencoding.bencode(info)).hexdigest()
+print(hashed_info)

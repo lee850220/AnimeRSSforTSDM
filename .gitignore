@@ -24,3 +24,5 @@ RSSLIST_timestamp
 RSSLIST_timestamp_tmp
 TSDM.lock
 .vscode
+pcs_command_history.txt
+pcs_config.json

@@ -52,11 +52,11 @@ elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
 then
 	# One File
 	# find torrent
-	hash=$(python "$scriptpath"/aria2_to_magnet.py "$path".aria2)
+	hash=$(aria2mgt "$path".aria2 | awk -F ':' '{print $4}')
 	SAVEIFS=$IFS
 	IFS=$(echo -en "\n\b")
 	for file in $(ls $downloadpath/*.torrent); do
-		hash1=$(python "$scriptpath"/infohash.py "$file")
+		hash1=$(transmission-show -i "$file" | grep Hash | awk '{print $2}')
 		if [ "$hash" = "$hash1" ]; then
 			echo [DL_BT.sh]" "BT mode
 			[ -e "$path.upload" ] && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}"

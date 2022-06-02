@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import struct
 import binascii
 import argparse
@@ -67,7 +67,7 @@ def parse_aria_control_file(file_name):
 
                 info_hash += hex_word.lower()
 
-            print info_hash
+            print(info_hash)
             #magnet_link = "magnet:?xt=urn:btih:" + info_hash
             #print magnet_link
         except:

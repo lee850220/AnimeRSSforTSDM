@@ -12,11 +12,11 @@ scriptpath='/etc/aria2'
 #=====================================================
 function CLEAN_FILES {
 	echo [DL_Stop.sh]" "searching match torrent...
-	hash=$(python "$scriptpath"/aria2_to_magnet.py "$path".aria2)
+	hash=$(aria2mgt "$path".aria2 | awk -F ':' '{print $4}')
 	SAVEIFS=$IFS
 	IFS=$(echo -en "\n\b")
 	for file in $(ls $downloadpath/*.torrent); do
-		hash1=$(python "$scriptpath"/infohash.py "$file")
+		hash1=$(transmission-show -i "$file" | grep Hash | awk '{print $2}')
 		if [ "$hash" = "$hash1" ]
 		then
 			rm -vf "$file" "$file.aria2"
@@ -73,11 +73,11 @@ if [ $2 -eq 0 ]
 elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
     then
 		# One File
-		hash=$(python "$scriptpath"/aria2_to_magnet.py "$path".aria2)
+		hash=$(aria2mgt "$path".aria2 | awk -F ':' '{print $4}')
 		SAVEIFS=$IFS
 		IFS=$(echo -en "\n\b")
 		for file in $(ls $downloadpath/*.torrent); do
-			hash1=$(python "$scriptpath"/infohash.py "$file")
+			hash1=$(transmission-show -i "$file" | grep Hash | awk '{print $2}')
 			if [ "$hash" = "$hash1" ]; then 
 				[ -e "$path.upload" ] && /etc/aria2/rar_TSDM.sh "${path}"
 				BT_SINGLE

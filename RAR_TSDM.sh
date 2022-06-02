@@ -20,6 +20,7 @@ filename="${filename_ext%.*}"
 targetFile=${header}${filename}.rar
 
 # For Baidu
+export BAIDUPCS_GO_CONFIG_DIR='/etc/aria2'
 uploadDIR=/apps/bypy
 app_id=250528
 LIST_API=https://pan.baidu.com/api/list
@@ -35,10 +36,10 @@ LINE_API=https://notify-api.line.me/api/notify
 LINE_TOKEN=$(cat ${ConfigFile} | grep LINE= | sed 's/.*=//' | sed 's/[^0-9A-Za-z]//')
 
 # For TSDM
-#FID=405 #吸血貓
-#TYPE=3142 #4月
-FID=8
-TYPE=51
+FID=405 #吸血貓
+TYPE=3142 #4月
+#FID=8
+#TYPE=51
 TSDM_Cookie=$(cat ${ConfigFile} | grep TSDM_COOKIE | sed "s/.*'\(.*\)'/\1/")
 FORMHASH=eee3130b
 MUTEX=/etc/aria2/TSDM.lock
@@ -106,9 +107,21 @@ fi
 echo "${Notice}Getting file ID..."
 fileID=$(curl -sX GET "${LIST_API}?app_id=${app_id}&bdstoken=${bdstoken}&channel=chunlei&clienttype=0&desc=0&dir=${uploadDIR}&logid=${logid}==&num=100&order=name&page=1&showempty=0&web=1" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" | jq '.' | fgrep -B 13 "${targetFile}" | grep "fs_id" | sed 's/[^0-9]//g')
 
+fileID="595806983765411"
 # create share link
-echo "${Notice}Creating share link of ${fileID}..."
+echo -n "${Notice}Creating share link of ${fileID}..."
 LINK=$(curl -sX POST "${SHARE_API}?bdstoken=${bdstoken}&channel=chunlei&web=1&app_id=${app_id}&logid=${logid}==&clienttype=0" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" --data-urlencode 'schannel=4' --data-urlencode 'channel_list=[]' --data-urlencode 'period=0' --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${fileID}]" | jq '.link' | sed 's/.*"\(.*\)".*/\1/')
+if [ "${LINK}" = "null" ]; then
+
+echo " Failed."
+curl -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+"Message=     Task failed. (reason: cannot get share link)
+[Task]：     ${pmtitle}";echo
+exit
+
+else
+    echo " Success."
+fi
 echo "${Notice}Your link is \"${LINK}\" with password \"${sharePW}\""
 
 # auto post to TSDM
@@ -141,7 +154,7 @@ DL_START=$(tail -1 "${UploadConfig}"|awk '{print $1}')
 DL_FINISH=$(tail -1 "${UploadConfig}"|awk '{print $2}')
 DLTIME=$(${ScriptDIR}/convertime.sh $((${DL_FINISH}-${DL_START})))
 ULTIME=$(${ScriptDIR}/convertime.sh $((${UL_FINISH}-${UL_START})))
-curl -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+curl -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-url$(echo  | encode \
 "Message=     Task has been completed.
 [Task]：     ${pmtitle}
 [TSDM]：    https://www.tsdm39.net/forum.php?mod=viewthread&tid=${TID}
@@ -157,14 +170,13 @@ EPISODE_NAME=$(echo ${ptitle}|sed 's/[][]/ /g' | awk '{print $2}')
 echo "${Notice}Moving ${targetFile} to /TSDM/${EPISODE_NAME}/${ptitle}..."
 BaiduPCS-Go mv "${uploadDIR}/${targetFile}" "/TSDM/${EPISODE_NAME}/${ptitle}/"
 
-'''
-echo "${Notice}Editing index post on TSDM..."
-#group=$(echo ${ptitle} | sed 's/.*【\(.*\)】.*/\1/')
-group="爱恋&漫猫字幕组"
-group=$(echo $group | sed 's/&/&amp;/g')
-TID=1103066
-PID=66072107
-response=$(curl -sX GET "https://www.tsdm39.net/forum.php?mod=post&action=edit&fid=${FID}&tid=${TID}&pid=${PID}&page=1" --header "${TSDM_Cookie}")
-echo $response | grep -o \<textarea.*\</textarea\> | tr '\n' '!' | sed 's/\r/\n/g' | sed 's/[\>\<]/\n/g' | sed '1,2d' | head -n -2 | tr '\n' '\r' | tr '!' '\n' > res
-#| grep -o \<textarea.*\</textarea\> | tr '\r' '\n' | sed 's/[\>\<]/\n/g' | sed '1,2d' | head -n -2 > res
-'''
+
+#echo "${Notice}Editing index post on TSDM..."
+##group=$(echo ${ptitle} | sed 's/.*【\(.*\)】.*/\1/')
+#group="爱恋&漫猫字幕组"
+#group=$(echo $group | sed 's/&/&amp;/g')
+#TID=1103066
+#PID=66072107
+#response=$(curl -sX GET "https://www.tsdm39.net/forum.php?mod=post&action=edit&fid=${FID}&tid=${TID}&pid=${PID}&page=1" --header "${TSDM_Cookie}")
+#echo $response | grep -o \<textarea.*\</textarea\> | tr '\n' '!' | sed 's/\r/\n/g' | sed 's/[\>\<]/\n/g' | sed '1,2d' | head -n -2 | tr '\n' '\r' | tr '!' '\n' > res
+##| grep -o \<textarea.*\</textarea\> | tr '\r' '\n' | sed 's/[\>\<]/\n/g' | sed '1,2d' | head -n -2 > res
