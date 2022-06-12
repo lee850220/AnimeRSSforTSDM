@@ -16,12 +16,11 @@ Watch this [**post**](https://www.tsdm39.net/forum.php?mod=viewthread&tid=110119
 # Changelog
 ## [[v1.4](https://github.com/lee850220/AnimeRSSforTSDM/releases/tag/v1.4)] - 2022-05-22
 ### Added
-- Support RSS of NYAA.
+- Support RSS for NYAA.
 - Show time elapsed for each check.
 
 ## [[v1.3](https://github.com/lee850220/AnimeRSSforTSDM/releases/tag/v1.3)] - 2022-05-21
 ### Added
-- Support RSS of NYAA.
 - Apply timezone to push notifications.
 - Auto identify episode for post title.
 - Auto move files to each series folder on Baidu Netdisk.
@@ -55,7 +54,7 @@ Watch this [**post**](https://www.tsdm39.net/forum.php?mod=viewthread&tid=110119
 - Change RSS source to [**Bangumi**](https://bangumi.moe/), due to bad cache time on DMHY.
 
 ### Unsupported
-- No longer to support RSS of DMHY.
+- No longer to support RSS for DMHY.
 
 ## [[v0.1](https://github.com/lee850220/AnimeRSSforTSDM/commit/3b8fbde57deb28212d3435d80270029f0b71a45e)] - 2022-05-03
 ### Added
