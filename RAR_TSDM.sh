@@ -1,4 +1,5 @@
 #!/bin/bash
+PATH="/usr/local/bin:$PATH"
 ScriptDIR=/etc/aria2
 Notice="[RAR_TSDM.sh] "
 path="${1%/*}/"
@@ -36,10 +37,10 @@ LINE_API=https://notify-api.line.me/api/notify
 LINE_TOKEN=$(cat ${ConfigFile} | grep LINE= | sed 's/.*=//' | sed 's/[^0-9A-Za-z]//')
 
 # For TSDM
-FID=405 #吸血貓
-TYPE=3142 #4月
-#FID=8
-#TYPE=51
+#FID=405 #吸血貓
+#TYPE=3142 #4月
+FID=8
+TYPE=51
 TSDM_Cookie=$(cat ${ConfigFile} | grep TSDM_COOKIE | sed "s/.*'\(.*\)'/\1/")
 FORMHASH=eee3130b
 MUTEX=/etc/aria2/TSDM.lock
@@ -69,6 +70,11 @@ function RCDOWN {
     echo "${Notice}${ptitle} Mutex has been released."
 
 }
+
+if [ ! -e ${UploadConfig} ]; then 
+    echo "${Notice}${filename_ext} no need to upload. Exit..."
+    exit
+fi
 
 # Package file by RAR
 if [ "$2" = "F" ]; then
@@ -106,11 +112,22 @@ fi
 # get file ID
 echo "${Notice}Getting file ID..."
 fileID=$(curl -sX GET "${LIST_API}?app_id=${app_id}&bdstoken=${bdstoken}&channel=chunlei&clienttype=0&desc=0&dir=${uploadDIR}&logid=${logid}==&num=100&order=name&page=1&showempty=0&web=1" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" | jq '.' | fgrep -B 13 "${targetFile}" | grep "fs_id" | sed 's/[^0-9]//g')
+if [ "${fileID}" = "" ]; then
 
-fileID="595806983765411"
+echo " Failed."
+curl -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+"Message=     Task failed. (reason: cannot get fileID)
+[Task]：     ${pmtitle}";echo
+exit
+
+else
+    echo " Success."
+fi
+
 # create share link
 echo -n "${Notice}Creating share link of ${fileID}..."
-LINK=$(curl -sX POST "${SHARE_API}?bdstoken=${bdstoken}&channel=chunlei&web=1&app_id=${app_id}&logid=${logid}==&clienttype=0" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" --data-urlencode 'schannel=4' --data-urlencode 'channel_list=[]' --data-urlencode 'period=0' --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${fileID}]" | jq '.link' | sed 's/.*"\(.*\)".*/\1/')
+Response=$(curl -sX POST "${SHARE_API}?bdstoken=${bdstoken}&channel=chunlei&web=1&app_id=${app_id}&logid=${logid}==&clienttype=0" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" --data-urlencode 'schannel=4' --data-urlencode 'channel_list=[]' --data-urlencode 'period=0' --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${fileID}]")
+LINK=$(echo $Response | jq '.link' | sed 's/.*"\(.*\)".*/\1/')
 if [ "${LINK}" = "null" ]; then
 
 echo " Failed."
@@ -154,14 +171,14 @@ DL_START=$(tail -1 "${UploadConfig}"|awk '{print $1}')
 DL_FINISH=$(tail -1 "${UploadConfig}"|awk '{print $2}')
 DLTIME=$(${ScriptDIR}/convertime.sh $((${DL_FINISH}-${DL_START})))
 ULTIME=$(${ScriptDIR}/convertime.sh $((${UL_FINISH}-${UL_START})))
-curl -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-url$(echo  | encode \
+curl -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task has been completed.
-[Task]：     ${pmtitle}
-[TSDM]：    https://www.tsdm39.net/forum.php?mod=viewthread&tid=${TID}
+[Task]：      ${pmtitle}
+[TSDM]：   https://www.tsdm39.net/forum.php?mod=viewthread&tid=${TID}
 [Baidu]：    ${LINK}
 [PW]：       ${sharePW}
-[DLTime]：${DLTIME}
-[ULTime]：${ULTIME}"; echo
+[DLTime]： ${DLTIME}
+[ULTime]： ${ULTIME}"; echo
 
 rm -rfv "${path}${targetFile}"
 

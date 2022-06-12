@@ -110,6 +110,7 @@ typedef struct publish {
 
 typedef struct tm TIME, * TIME_ptr;
 
+bool        is_NOUP;
 int         RSS_CNT         = 0;
 int         RSS_PUB_CNT     = 0;
 int         MODE;
@@ -257,19 +258,28 @@ void getRSS(void) {
 
         
         rm_newline(URL_RSS);
-        ptr = strchr(URL_RSS, ' ');         // get post title
+        is_NOUP = false;
+        ptr = strchr(URL_RSS, ' ');         // get post title or NO upload flag(N)
         if (ptr != NULL) {
             
             *ptr++ = 0;                     // seperate URL
-            pptr = strchr(ptr, ' ');        // get order
-            if (pptr != NULL) {
+            if (!strcmp(ptr, "N")) {
+                
+                is_NOUP = true;
 
-                *pptr++ = 0;
-                PUBLISH.order = atoi(pptr);                 
+            } else {
 
-            } else { printf(MSG_ERROR"Illegal format.\n"); cleanenv(); }
-            strcpy(PUBLISH.ptitle, ptr);
+                pptr = strchr(ptr, ' ');        // get order
+                if (pptr != NULL) {
 
+                    *pptr++ = 0;
+                    PUBLISH.order = atoi(pptr);                 
+
+                } else { printf(MSG_ERROR"Illegal format.\n"); cleanenv(); }
+                strcpy(PUBLISH.ptitle, ptr);
+
+            }
+            
         } else { printf(MSG_ERROR"Illegal format.\n"); cleanenv(); }
         //printf(MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle);
 
@@ -319,7 +329,7 @@ void getXML(const char * const URL) {
     while (fgets(buf, sizeof(buf), fp_xml) != NULL) {
         
         rm_newline(buf);
-	// if fail to get XML
+	    // if fail to get XML
         if (top && buf[0] == '@') {
     
             char tmp[BUF_SIZE];
@@ -377,7 +387,6 @@ void create_item(FILE * fp) {
             if (strstr(buf, "<title>")) {
 
                 //fgets(buf, sizeof(buf), fp);
-                printf("%s\n",buf);
                 rm_newline(buf);
                 start = strstr(buf, "CDATA[") + strlen("CDATA[");
                 end = strstr(buf, "]]>");
@@ -578,50 +587,54 @@ void addDownload(void) {
     strcpy(PUBLISH.filename, start);
     pclose(fp_filename);
 
-    // create .upload to identify that script will upload this file to baidu.
-    memset(cmd, 0, sizeof(cmd));
-    sprintf(cmd, "rm -f '%s%s.upload';sudo -u apache touch '%s%s.upload'", DLDIR, PUBLISH.filename, DLDIR, PUBLISH.filename);
-    system(cmd);
+    if (!is_NOUP) {
+    
+        // create .upload to identify that script will upload this file to baidu.
+        memset(cmd, 0, sizeof(cmd));
+        sprintf(cmd, "rm -f '%s%s.upload';sudo -u apache touch '%s%s.upload'", DLDIR, PUBLISH.filename, DLDIR, PUBLISH.filename);
+        system(cmd);
 
-    // output post title to upload config
-    memset(cmd, 0, sizeof(cmd));
-    sprintf(cmd, "%s%s.upload", DLDIR, PUBLISH.filename);
-    fp_config = fopen(cmd, "a");
-    if (fp_config == NULL) {printf(MSG_ERROR"Cannot open upload config.\n"); exit(1);}
-    fprintf(fp_config, "%s\n", PUBLISH.ptitle);
+        // output post title to upload config
+        memset(cmd, 0, sizeof(cmd));
+        sprintf(cmd, "%s%s.upload", DLDIR, PUBLISH.filename);
+        fp_config = fopen(cmd, "a");
+        if (fp_config == NULL) {printf(MSG_ERROR"Cannot open upload config.\n"); exit(1);}
+        fprintf(fp_config, "%s\n", PUBLISH.ptitle);
 
-    // output sub-post content to upload config
-    memset(cmd, 0, sizeof(cmd));
-    strcpy(cmd, POST_FILE);
-    fp_post = fopen(cmd, "r");
-    if (fp_post == NULL) {printf(MSG_ERROR"Cannot open post content.\n"); exit(1);}
+        // output sub-post content to upload config
+        memset(cmd, 0, sizeof(cmd));
+        strcpy(cmd, POST_FILE);
+        fp_post = fopen(cmd, "r");
+        if (fp_post == NULL) {printf(MSG_ERROR"Cannot open post content.\n"); exit(1);}
 
-    cnt = 0;
-    fin = false;
-    while (fgets(buf, sizeof(buf), fp_post) != NULL) {
-        
-        rm_newline(buf);
-        if (strcmp(buf, POST_DELIMIT) == 0) cnt++;
-        if (cnt == PUBLISH.order) {
+        cnt = 0;
+        fin = false;
+        while (fgets(buf, sizeof(buf), fp_post) != NULL) {
             
-            while (1) {
+            rm_newline(buf);
+            if (strcmp(buf, POST_DELIMIT) == 0) cnt++;
+            if (cnt == PUBLISH.order) {
+                
+                while (1) {
 
-                fgets(buf, sizeof(buf), fp_post);
-                rm_newline(buf);
-                if (strcmp(buf, POST_DELIMIT) == 0) {fin = true; break;}
-                fprintf(fp_config, "%s\n", buf);
+                    fgets(buf, sizeof(buf), fp_post);
+                    rm_newline(buf);
+                    if (strcmp(buf, POST_DELIMIT) == 0) {fin = true; break;}
+                    fprintf(fp_config, "%s\n", buf);
 
+                }
+                if (fin) break;
+                
             }
-            if (fin) break;
             
         }
-        
-    }
-    fclose(fp_post);
+        fclose(fp_post);
 
-    // output start download time to upload config
-    fprintf(fp_config, "%ld ", dl_start);
-    fclose(fp_config);
+        // output start download time to upload config
+        fprintf(fp_config, "%ld ", dl_start);
+        fclose(fp_config);
+
+    }
 
 }
 
