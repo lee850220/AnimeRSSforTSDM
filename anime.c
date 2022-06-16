@@ -22,7 +22,7 @@
 #define TIMEZONE            8           // UTC+8
 
 #define LINE_API            "https://notify-api.line.me/api/notify"
-#define SERVER_URL          "https://kdrive.ga:6800/jsonrpc"
+#define SERVER_URL          "https://kcloud.one:6800/jsonrpc"
 
 #define JSONRPC             "2.0"
 #define METHOD              "aria2.addUri"
