@@ -71,6 +71,39 @@ function RCDOWN {
 
 }
 
+function GET_FILEID {
+
+    #fileID=$(curl -sX GET "${LIST_API}?app_id=${app_id}&bdstoken=${bdstoken}&channel=chunlei&clienttype=0&desc=0&dir=${uploadDIR}&logid=${logid}==&num=100&order=name&page=1&showempty=0&web=1" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" | jq '.' | fgrep -B 13 "${targetFile}" | grep "fs_id" | sed 's/[^0-9]//g')
+    fileID=$(BaiduPCS-Go meta "${uploadDIR}/${targetFile}" | grep fs_id | awk '{print $2}')    
+}
+
+function GET_FILEID_FAIL {
+
+echo " Failed."
+curl -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+"Message=     Task failed. (reason: cannot get fileID)
+[Task]：     ${pmtitle}";echo
+exit
+
+}
+
+function CSHARE {
+
+    Response=$(curl -sX POST "${SHARE_API}?bdstoken=${bdstoken}&channel=chunlei&web=1&app_id=${app_id}&logid=${logid}==&clienttype=0" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" --data-urlencode 'schannel=4' --data-urlencode 'channel_list=[]' --data-urlencode 'period=0' --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${fileID}]")
+    LINK=$(echo $Response | jq '.link' | sed 's/.*"\(.*\)".*/\1/')
+
+}
+
+function CSHARE_FAIL {
+
+echo " Failed."
+curl -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+"Message=     Task failed. (reason: cannot get share link)
+[Task]：     ${pmtitle}";echo
+exit
+
+}
+
 if [ ! -e ${UploadConfig} ]; then 
     echo "${Notice}${filename_ext} no need to upload. Exit..."
     exit
@@ -111,35 +144,44 @@ fi
 
 # get file ID
 echo "${Notice}Getting file ID..."
-fileID=$(curl -sX GET "${LIST_API}?app_id=${app_id}&bdstoken=${bdstoken}&channel=chunlei&clienttype=0&desc=0&dir=${uploadDIR}&logid=${logid}==&num=100&order=name&page=1&showempty=0&web=1" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" | jq '.' | fgrep -B 13 "${targetFile}" | grep "fs_id" | sed 's/[^0-9]//g')
-if [ "${fileID}" = "" ]; then
-
-echo " Failed."
-curl -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
-"Message=     Task failed. (reason: cannot get fileID)
-[Task]：     ${pmtitle}";echo
-exit
-
-else
-    echo " Success."
-fi
+Retry=0
+while true
+do
+    GET_FILEID
+    if ([ "${fileID}" = "null" ] || [ "${fileID}" = "" ]); then
+        if (( $Retry == 5 )); then
+            GET_FILEID_FAIL
+        else
+            (( Retry = Retry + 1 ))
+            echo "Failed. Sleep 10 sec and retry. Retry ${Retry}/5..."
+            sleep 10
+        fi
+    else
+        echo " Success."
+        break
+    fi
+done
 
 # create share link
 echo -n "${Notice}Creating share link of ${fileID}..."
-Response=$(curl -sX POST "${SHARE_API}?bdstoken=${bdstoken}&channel=chunlei&web=1&app_id=${app_id}&logid=${logid}==&clienttype=0" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" --data-urlencode 'schannel=4' --data-urlencode 'channel_list=[]' --data-urlencode 'period=0' --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${fileID}]")
-LINK=$(echo $Response | jq '.link' | sed 's/.*"\(.*\)".*/\1/')
-if [ "${LINK}" = "null" ]; then
-
-echo " Failed."
-curl -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
-"Message=     Task failed. (reason: cannot get share link)
-[Task]：     ${pmtitle}";echo
-exit
-
-else
-    echo " Success."
-fi
-echo "${Notice}Your link is \"${LINK}\" with password \"${sharePW}\""
+Retry=0
+while true
+do
+    CSHARE
+    if ([ "${LINK}" = "null" ] || [ "${LINK}" = "" ]); then
+        if (( $Retry == 5 )); then
+            CSHARE_FAIL
+        else
+            (( Retry = Retry + 1 ))
+            echo "Failed. Sleep 10 sec and retry. Retry ${Retry}/5..."
+            sleep 10
+        fi
+    else
+        echo " Success."
+        echo "${Notice}Your link is \"${LINK}\" with password \"${sharePW}\""
+        break
+    fi
+done
 
 # auto post to TSDM
 echo "${Notice}Posting main post on TSDM..."
@@ -180,6 +222,7 @@ curl -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlenco
 [DLTime]： ${DLTIME}
 [ULTime]： ${ULTIME}"; echo
 
+# Clean upload file
 rm -rfv "${path}${targetFile}"
 
 # moving file to specific directory
