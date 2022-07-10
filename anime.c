@@ -954,7 +954,7 @@ void rmspace(char * str){
 
 void cleanenv(void) {
 
-    system("rm -f "FILENAME_RSSTIME".tmp");
+    system("rm -f "FILENAME_RSSTIME"_tmp");
     exit(1);
 
 }
