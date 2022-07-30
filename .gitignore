@@ -29,3 +29,5 @@ pcs_config.json
 pcs_uploading.json
 TSDM.txt
 ren.sh
+*.o
+.depend
