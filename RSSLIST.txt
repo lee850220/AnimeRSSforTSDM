@@ -16,8 +16,8 @@ https://bangumi.moe/rss/search/%E6%A1%9C%E9%83%BD%20%E4%B8%8D%E6%AD%BB%20[1080p]
 https://bangumi.moe/rss/search/%E6%A1%9C%E9%83%BD%20%E4%B8%8D%E6%AD%BB%2060%20%E7%AE%80%E7%B9%81 【桜都字幕组】[OVERLORD四期][1080P@60fps][HEVC_10it_AAC][简繁内封]​ 4
 https://bangumi.moe/rss/search/%E5%96%B5%20%E8%87%B3%E4%B8%8A%201080%20%E7%AE%80%E6%97%A5 【喵萌奶茶屋】[欢迎来到实力至上主义的教室S2][1080P][AVC_8bit_AAC][简体]​ 5
 https://bangumi.moe/rss/search/%E5%96%B5%20%E8%87%B3%E4%B8%8A%20%E7%B9%81%E6%97%A5%201080 【喵萌奶茶屋】[歡迎來到實力至上主義的教室S2][1080P][AVC_8bit_AAC][繁體]​ 5
-https://bangumi.moe/rss/search/%E7%88%B1%E6%81%8B%20%E8%87%B3%E4%B8%8A%20%E4%BA%8C%E5%AD%A3 【爱恋&漫猫字幕组】[欢迎来到实力至上主义的教室S2][1080P][AVC_8bit_AAC][简体]​ 5
-https://bangumi.moe/rss/search/%E6%84%9B%E6%88%80%20%E8%87%B3%E4%B8%8A%20%E4%BA%8C%E5%AD%A3 【愛戀&漫貓字幕組】[歡迎來到實力至上主義的教室S2][1080P][AVC_8bit_AAC][繁體]​ 5
+https://bangumi.moe/rss/search/%E7%88%B1%E6%81%8B%20Youkos 【爱恋&漫猫字幕组】[欢迎来到实力至上主义的教室S2][1080P][AVC_8bit_AAC][简体]​ 5
+https://bangumi.moe/rss/search/%E6%84%9B%E6%88%80%20Youkos 【愛戀&漫貓字幕組】[歡迎來到實力至上主義的教室S2][1080P][AVC_8bit_AAC][繁體]​ 5
 https://bangumi.moe/rss/search/%E5%8A%A8%E6%BC%AB%20%E8%87%B3%E4%B8%8A%20%E7%AE%80%E4%BD%93%201080 【动漫国字幕组】[欢迎来到实力至上主义的教室S2][1080P][AVC_8bit_AAC][简体]​ 5
 https://bangumi.moe/rss/search/%E5%8B%95%E6%BC%AB%20%E8%87%B3%E4%B8%8A%20%E4%BA%8C%E5%AD%A3%201080 【動漫國字幕組】[歡迎來到實力至上主義的教室S2][1080P][AVC_8bit_AAC][繁體]​ 5
 https://bangumi.moe/rss/search/Loli%20%E8%87%B3%E4%B8%8A%20%E4%BA%8C%E5%AD%A3 【动漫国字幕组&LoliHouse】[欢迎来到实力至上主义的教室S2][1080P][HEVC_10bit_AAC][简繁内封]​ 5
@@ -38,7 +38,7 @@ https://bangumi.moe/rss/search/%E5%BD%A9%20%E7%94%9F%E6%B4%BB%20%E7%B9%81%E4%BD%
 https://bangumi.moe/rss/search/Loli%20%E6%89%93%E5%B7%A5%20S2 【动漫国字幕组&LoliHouse】[打工吧!!魔王大人][1080P][HEVC_10bit_AAC][简繁内封]​ 10
 https://bangumi.moe/rss/search/%E5%8A%A8%E6%BC%AB%20%E6%89%93%E5%B7%A5%201080%20%E7%AE%80%E4%BD%93 【动漫国字幕组】[打工吧!!魔王大人][1080P][AVC_8bit_AAC][简体]​ 10
 https://bangumi.moe/rss/search/%E5%8B%95%E6%BC%AB%20%E6%89%93%E5%B7%A5%201080 【動漫國字幕組】[打工吧!!魔王大人][1080P][AVC_8bit_AAC][繁體]​ 10
-https://bangumi.moe/rss/search/%E7%88%B1%E6%81%8B%20%E6%89%93%E5%B7%A5%201080 【爱恋&漫猫字幕组】[打工吧!!魔王大人][1080P][AVC_8bit_AAC][简体]​ 10
-https://bangumi.moe/rss/search/%E6%84%9B%E6%88%80%20%E6%89%93%E5%B7%A5%201080 【愛戀&漫貓字幕組】[打工吧!!魔王大人][1080P][AVC_8bit_AAC][繁體]​ 10
+https://bangumi.moe/rss/search/%E7%88%B1%E6%81%8B%20%E6%89%93%E5%B7%A5%201080 【爱恋字幕社&波子汽水汉化组】[打工吧!!魔王大人][1080P][AVC_8bit_AAC][简体]​ 10
+https://bangumi.moe/rss/search/%E6%84%9B%E6%88%80%20%E6%89%93%E5%B7%A5%201080 【愛戀字幕社&波子汽水汉化组】[打工吧!!魔王大人][1080P][AVC_8bit_AAC][繁體]​ 10
 https://bangumi.moe/rss/search/%E7%A6%BB%E8%B0%B1%20%E6%89%93%E5%B7%A5%20%E7%AE%80%E4%BD%93 【离谱Sub】[打工吧!!魔王大人][1080P][AVC_8bit_AAC][简体]​ 10
 https://bangumi.moe/rss/search/%E7%A6%BB%E8%B0%B1%20%E6%89%93%E5%B7%A5%20%E7%B9%81%E9%AB%94 【离谱Sub】[打工吧!!魔王大人][1080P][AVC_8bit_AAC][繁體]​ 10

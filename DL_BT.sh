@@ -11,9 +11,10 @@ scriptpath='/etc/aria2'
 downloadpath='/var/www/html/nextcloud/data/lee850220/files/Aria2'
 
 #============================================================
+Notice="[DL_BT.sh]: "
 
 function NORMAL {
-	echo [DL_BT.sh]" NORMAL mode, DO NOTHING."
+	echo ${Notice}"NORMAL mode, DO NOTHING."
 	exit 0
 }
 
@@ -27,15 +28,15 @@ filepath=$3 # Aria2傳遞給腳本的檔路徑。BT下載有多個檔時該值�
 rdp=${filepath#${downloadpath}/} # 路徑轉換，去掉開頭的下載路徑。
 path=${downloadpath}/${rdp%%/*} # 路徑轉換，BT下載檔案夾時為頂層資料夾路徑，普通單檔下載時與檔路徑相同。
 filename=${path#${downloadpath}/}
-echo "[DL_BT.sh] RDP= "$rdp
-echo "[DL_BT.sh] DLP= "$downloadpath
-echo "[DL_BT.sh] P= "$path
-echo "[DL_BT.sh] FN= "$filename
-echo "[DL_BT.sh] ""\"${path}\""" Download Completed!!!"
+echo "${Notice}RDP= "$rdp
+echo "${Notice}DLP= "$downloadpath
+echo "${Notice}P= "$path
+echo "${Notice}FN= "$filename
+echo "${Notice}""\"${path}\""" Download Completed!!!"
 
 if [ -z $2 ]
 then
-    echo && echo "[DL_BT.sh] ""[ERROR] This script can only be used by passing parameters through Aria2."
+    echo && echo ${Notice}"[ERROR] This script can only be used by passing parameters through Aria2."
     exit 1
 elif [ $2 -eq 0 ]
 then
@@ -46,7 +47,7 @@ fi
 if [ $2 -eq 0 ]
     then
 		# No File
-        echo "[DL_BT.sh] ""[No file exist]"
+        echo "${Notice}""[No file exist]"
         exit 0
 elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
 then
@@ -58,8 +59,8 @@ then
 	for file in $(ls $downloadpath/*.torrent); do
 		hash1=$(transmission-show -i "$file" | grep Hash | awk '{print $2}')
 		if [ "$hash" = "$hash1" ]; then
-			echo [DL_BT.sh]" "BT mode
-			[ -e "$path.upload" ] && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}"
+			echo ${Notice}"BT mode"
+			[ -e "$path.upload" ] && echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}"
 			BT
 		fi
 	done
@@ -69,7 +70,7 @@ then
 elif [ "$path" != "$filepath" ]
 then
 	# Folder (need fix)
-	[ -e "$path.upload" ] && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}" "F"
+	[ -e "$path.upload" ] && echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}" "F"
 	BT        
 fi
 

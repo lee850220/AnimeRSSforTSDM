@@ -122,17 +122,17 @@ time_t      LAST_TIME;
 time_t      DL_START;
 publish     PUBLISH;
 
-const int   len_rss         = strlen("python3  \"\";echo $?") + 1;
+const int   len_rss         = strlen("python3 -u  \"\" 2> /dev/null") + 1;
 const int   len_torrent     = strlen("wget -qO- '' | grep 會員專用連接") + 1;
-const int   len_torrentname = strlen("python3  $(./getfilename.sh ) | sed 's/.*\"\\(.*\\)\".$/\\1/'") + 1;
+const int   len_torrentname = strlen("python3 -u $(./getfilename.sh ) | sed 's/.*\"\\(.*\\)\".$/\\1/'") + 1;
 const int   len_filename    = strlen("transmission-show  | grep Name | head -1") + 1;
 const int   len_filename_c  = strlen("transmission-show \"\" &> /dev/null;echo $?") + 1;
 const int   len_createfile  = strlen("rm -f '.upload'sudo -u apache touch '.upload'") + 1;
-const int   len_notify      = strlen("curl -sX POST ''" \
+const int   len_notify      = strlen("curl -m 15 -sX POST ''" \
                                         " --header 'Content-Type: application/x-www-form-urlencoded'" \
                                         " --header 'Authorization: Bearer '" \
-                                        " --data-urlencode 'Message='") + 1;
-const int   len_req         = strlen("curl -X POST ''" \
+                                        " --data-urlencode 'Message=' ; echo $?") + 1;
+const int   len_req         = strlen("curl -m 15 -X POST ''" \
                                           "-w \" Status: %{http_code}\"" \
                                           "-d '{\"jsonrpc\": \"\"," \
                                                "\"method\": \"\"," \
@@ -203,7 +203,7 @@ void readToken(void) {
 
     // read Aria2 config
     fp_config = fopen(ARIA2_CONFIG, "r");
-    if (fp_config == NULL) {printf(MSG_ERROR"Cannot open aria2 config.\n"); exit(1);}
+    if (fp_config == NULL) {printf(MSG_ERROR"Cannot open aria2 config.\n"); cleanenv();}
     while (fgets(buf, sizeof(buf), fp_config) != NULL) {
 
         rm_newline(buf);
@@ -249,8 +249,9 @@ void getRSS(void) {
     fp_list = fopen(FILENAME_LIST, "r");
     fp_tlist = fopen(FILENAME_RSSTIME, "r");
     fp_ttlist = fopen(FILENAME_RSSTIME"_tmp", "r");
+    
     if (fp_ttlist != NULL) {printf(MSG_ERROR"There is another process running.\n"); exit(1);}
-    if (fp_list == NULL) {printf(MSG_ERROR"Cannot open RSSLIST.\n"); exit(1);}
+    if (fp_list == NULL) {printf(MSG_ERROR"Cannot open RSSLIST.\n"); cleanenv();}
     memset(PUBLISH.ptitle, 0, sizeof(PUBLISH.ptitle));
 
     // process each line of RSS
@@ -292,13 +293,12 @@ void getRSS(void) {
             else                    PUBLISH.lastPub = atol(buf);
         
         } else {PUBLISH.lastPub = CUR_TIME;}
-
         RSS_CNT++;
         getXML(URL_RSS); // get RSS push info
         
         // update last publish timestamp
         fp_ttlist = fopen(FILENAME_RSSTIME"_tmp", "a");
-        if (fp_ttlist == NULL) {printf(MSG_ERROR"Cannot create RSS timestamp temp file.\n"); exit(1); }
+        if (fp_ttlist == NULL) {printf(MSG_ERROR"Cannot create RSS timestamp temp file.\n"); cleanenv(); }
         fprintf(fp_ttlist, "%ld\n", PUBLISH.lastPub);
         fclose(fp_ttlist);
 
@@ -322,23 +322,25 @@ void getXML(const char * const URL) {
     char buf[BUF_SIZE];
     char * cmd = (char *)malloc(sizeof(char) * (len_rss + strlen(FILENAME_PXML) + strlen(URL)));
     memset(cmd, 0, sizeof(cmd));
-    sprintf(cmd, "python3 %s \"%s\";echo $?", FILENAME_PXML, URL);
+    sprintf(cmd, "python3 -u %s \"%s\" 2> /dev/null", FILENAME_PXML, URL);
     fp_xml = popen(cmd, "r");
-    if (fp_xml == NULL) {printf(MSG_ERROR"Get XML failed.\n"); exit(1);}
+    if (fp_xml == NULL) {printf(MSG_ERROR"Get XML failed.\n"); cleanenv();}
     
     while (fgets(buf, sizeof(buf), fp_xml) != NULL) {
         
         rm_newline(buf);
+
 	    // if fail to get XML
         if (top && buf[0] == '@') {
     
             char tmp[BUF_SIZE];
+            printf(MSG_ERROR"Get XML failed.\n");
             memset(tmp, 0, sizeof(tmp));
             sprintf(tmp, "rm -f \"%s_tmp\"", FILENAME_RSSTIME);
             system(tmp);
-            printf(MSG_ERROR"Failed to get RSS (%s)"MSG_PUSH, buf + 1); 
-            push_notify(MSG_ERROR_N"Failed to get RSS.\n"); 
-            exit(1);
+            //printf(MSG_ERROR"Failed to get RSS (%s)"MSG_PUSH, buf + 1); 
+            //push_notify(MSG_ERROR_N"Failed to get RSS.\n"); 
+            cleanenv();
         
         }
 
@@ -365,7 +367,7 @@ void getXML(const char * const URL) {
 }
 
 /*
- *  Create an object to store each Push info. (for Bangumi)
+ *  Create an object to store each Push info.
  *  Input:  file descriptor of RSS
  *  Output: none
  */   
@@ -498,7 +500,7 @@ void gettorrent(void) {
     strcat(cmd, "'|grep 會員專用連接");
     
     fp_torrent = popen(cmd, "r");
-    if (fp_torrent == NULL) {printf(MSG_ERROR"Cannot get torrent.\n"); exit(1);}
+    if (fp_torrent == NULL) {printf(MSG_ERROR"Cannot get torrent.\n"); cleanenv();}
     while (fgets(buf, sizeof(buf), fp_torrent) != NULL) {
         
         rm_newline(buf);
@@ -531,7 +533,7 @@ void addDownload(void) {
     
     // send HTTP request to Aria2
     memset(cmd, 0, sizeof(cmd));
-    sprintf(cmd, "curl -sX POST \"%s\" -w \" Status: %{http_code}\" " \
+    sprintf(cmd, "curl -m 30 -sX POST \"%s\" -w \" Status: %{http_code}\" " \
                                       "-d '{\"jsonrpc\":\"%s\"," \
                                            "\"method\":\"%s\"," \
                                            "\"id\":\"%s\"," \
@@ -539,13 +541,13 @@ void addDownload(void) {
                                                       "[\"%s\"]]}' " \
                                      "--cacert %s", SERVER_URL, JSONRPC, METHOD, ID, ARIA2_TOKEN, PUBLISH.torrent, CERT_PATH);
     fp_http_req = popen(cmd, "r");
-    if (fp_http_req == NULL) {printf(MSG_ERROR"Send HTTP request failed.\n"); exit(1);}
+    if (fp_http_req == NULL) {printf(MSG_ERROR"Send HTTP request failed.\n"); cleanenv();}
     fgets(buf, sizeof(buf), fp_http_req);
     memset(code, 0, sizeof(code));
     start = strrchr(buf, ':') + 1;
     strcpy(code, start);
     if (atoi(code) == HTTPCODE_OK)  printf(MSG_NOTICE""MSG_ADDTASK""MSG_SUCCESS"\n");
-    else                           {printf(MSG_NOTICE""MSG_ADDTASK""MSG_FAIL""MSG_PUSH); push_notify(MSG_ERROR_N""MSG_ADDTASK""MSG_FAIL_N"\n"); exit(1);}
+    else                           {printf(MSG_NOTICE""MSG_ADDTASK""MSG_FAIL""MSG_PUSH); push_notify(MSG_ERROR_N""MSG_ADDTASK""MSG_FAIL_N"\n"); cleanenv();}
     pclose(fp_http_req);
     time(&dl_start); // get download start time
 
@@ -554,7 +556,7 @@ void addDownload(void) {
     if (MODE == MODE_NYAA)          sprintf(cmd, "%s %s", FILENAME_GETFNAME, PUBLISH.torrent);
     else if (MODE == MODE_BANGUMI)  sprintf(cmd, "basename \"$(echo \"%s\")\"", PUBLISH.torrent);
     fp_filename = popen(cmd, "r");
-    if (fp_filename == NULL) {printf(MSG_ERROR"Cannot get torrent filename.\n"); exit(1);}
+    if (fp_filename == NULL) {printf(MSG_ERROR"Cannot get torrent filename.\n"); cleanenv();}
     fgets(torrent_name, sizeof(torrent_name), fp_filename);
     rm_newline(torrent_name);
     pclose(fp_filename);
@@ -567,7 +569,7 @@ void addDownload(void) {
 
         FILE * fpfp;
         fpfp = popen(cmd, "r");
-        if (fpfp == NULL) {printf(MSG_ERROR"Cannot get torrent filename.\n"); exit(1);}
+        if (fpfp == NULL) {printf(MSG_ERROR"Cannot get torrent filename.\n"); cleanenv();}
         fgets(buf, sizeof(buf), fpfp);
         //printf("buf=%s\n", buf);
         pclose(fpfp);
@@ -598,14 +600,14 @@ void addDownload(void) {
         memset(cmd, 0, sizeof(cmd));
         sprintf(cmd, "%s%s.upload", DLDIR, PUBLISH.filename);
         fp_config = fopen(cmd, "a");
-        if (fp_config == NULL) {printf(MSG_ERROR"Cannot open upload config.\n"); exit(1);}
+        if (fp_config == NULL) {printf(MSG_ERROR"Cannot open upload config.\n"); cleanenv();}
         fprintf(fp_config, "%s\n", PUBLISH.ptitle);
 
         // output sub-post content to upload config
         memset(cmd, 0, sizeof(cmd));
         strcpy(cmd, POST_FILE);
         fp_post = fopen(cmd, "r");
-        if (fp_post == NULL) {printf(MSG_ERROR"Cannot open post content.\n"); exit(1);}
+        if (fp_post == NULL) {printf(MSG_ERROR"Cannot open post content.\n"); cleanenv();}
 
         cnt = 0;
         fin = false;
@@ -654,7 +656,7 @@ void show_lasttime(void) {
         // if no checkpoint exist
         printf("First Run.\n");
         fp_time = fopen(TIMESTAMP_FILE, "w");
-        if (fp_time == NULL) {printf(MSG_ERROR"Cannot create checkpoint.\n"); exit(1);}
+        if (fp_time == NULL) {printf(MSG_ERROR"Cannot create checkpoint.\n"); cleanenv();}
         fprintf(fp_time, "%ld\n", CUR_TIME);
         LAST_TIME = CUR_TIME;
         
@@ -681,7 +683,7 @@ void update_checkpoint(void) {
 
     FILE * fp_time;
     fp_time = fopen(TIMESTAMP_FILE, "w");
-    if (fp_time == NULL) {printf(MSG_ERROR"Cannot open checkpoint file.\n"); exit(1);}
+    if (fp_time == NULL) {printf(MSG_ERROR"Cannot open checkpoint file.\n"); cleanenv();}
     fprintf(fp_time, "%ld\n", CUR_TIME);
     fclose(fp_time);
 
@@ -712,15 +714,15 @@ void push_notify(const char const * msg) {
     char * cmd = (char *)malloc(sizeof(char) * (len_notify + strlen(LINE_TOKEN) + strlen(LINE_API) + BUF_SIZE));
     
     memset(cmd, 0, sizeof(cmd));
-    sprintf(cmd, "curl -sX POST '%s'" \
+    sprintf(cmd, "curl -m 15 -sX POST '%s'" \
                     " --header 'Content-Type: application/x-www-form-urlencoded'" \
                     " --header 'Authorization: Bearer %s'" \
-                    " --data-urlencode 'Message=%s'", LINE_API, LINE_TOKEN, msg);
-
+                    " --data-urlencode 'Message=%s';echo $?", LINE_API, LINE_TOKEN, msg);
     fp_notify = popen(cmd, "r");
-    if (fp_notify == NULL) {printf(MSG_ERROR"Send notify to LINE failed.\n"); exit(1);}
+    if (fp_notify == NULL) {printf(MSG_ERROR"Send notify to LINE failed.\n"); cleanenv();}
     fgets(buf, sizeof(buf), fp_notify);
     rm_newline(buf);
+    if (buf[0] != '{') printf(MSG_ERROR""MSG_LINE""MSG_FAIL"\n");   // connection timeout
     start = strstr(buf, "status\":") + strlen("status\":");
     end = strchr(buf, ',');
     memset(code, 0, sizeof(code));
@@ -743,7 +745,7 @@ int check_source(const char const * str) {
     strncpy(buf, start, end - start);
     if (!strcmp(buf, BANGUMI)) return MODE_BANGUMI;
     else if (!strcmp(buf, NYAA)) return MODE_NYAA;
-    else {printf(MSG_ERROR"This site (%s) is not support yet.\n", buf); exit(1);};
+    else {printf(MSG_ERROR"This site (%s) is not support yet.\n", buf); cleanenv();};
 
 }
 
@@ -755,7 +757,7 @@ void convert_time(char * str, time_t t) {
     memset(buf, 0, sizeof(buf));
     sprintf(buf, "echo %ld | %s", t, FILENAME_CTIME);
     fp_time = popen(buf, "r");
-    if (fp_time == NULL) {printf(MSG_ERROR"Cannot convert time.\n"); exit(1);}
+    if (fp_time == NULL) {printf(MSG_ERROR"Cannot convert time.\n"); cleanenv();}
     fgets(buf, sizeof(buf), fp_time);
     rm_newline(buf);
     strcpy(str, buf);

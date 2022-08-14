@@ -33,7 +33,11 @@ dep:
 
 main: $(OBJ)
 	$(CC) $(CFLAGS) $(OBJ) -o $(EXE)
+
+install: install_c clean
 	
+install_c: $(EXE)
+	mv -fv $(EXE) /usr/local/bin/
 
 clean:
 	@rm -fv $(OBJ) $(EXE) .depend
