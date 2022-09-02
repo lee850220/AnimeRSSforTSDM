@@ -31,3 +31,4 @@ TSDM.txt
 ren.sh
 *.o
 .depend
+*

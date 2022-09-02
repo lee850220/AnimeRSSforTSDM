@@ -41,19 +41,23 @@ function NORMAL {
 
 function BT_SINGLE {
 	echo [DL_Stop.sh]" "[Single BT Mode]
-	CLEAN_FILES
 	echo [DL_Stop.sh]" "moving file...
-	mv -v "$path" "$downloadpath/TEMP"
-	if [ "$?" != "0" ]; then rm -rfv "$path"; fi
+	if [[ -f "$path.upload" ]]; then
+		mv -v "$path" "$downloadpath/TEMP"
+		if [ "$?" != "0" ]; then rm -rfv "$path"; fi
+	fi
+	CLEAN_FILES
 	exit 0
 }
 
 function BT_FOLDER {
 	echo [DL_Stop.sh]" "[Multi BT Mode]
-	CLEAN_FILES
 	echo [DL_Stop.sh]" "moving file...
-	mv -v "$path" "$downloadpath/TEMP"
-	if [ "$?" != "0" ]; then rm -rfv "$path"; fi
+	if [[ -f "$path.upload" ]]; then
+		mv -v "$path" "$downloadpath/TEMP"
+		if [ "$?" != "0" ]; then rm -rfv "$path"; fi
+	fi
+	CLEAN_FILES
 	exit 0
 }
 

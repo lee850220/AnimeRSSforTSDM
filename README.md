@@ -1,5 +1,5 @@
 # AnimeRSSforTSDM  
-![](https://img.shields.io/badge/tag-v1.4-blue)  ![](https://img.shields.io/badge/maintaince%3F-yes-brightgreen)  [![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg)  
+![](https://img.shields.io/badge/tag-v1.5-blue)  ![](https://img.shields.io/badge/maintaince%3F-yes-brightgreen)  [![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg)  
 This is a project to automatically transfer Anime to Baidu netdisk with some rules on TSDM.
 <br>
 <br>
@@ -11,9 +11,23 @@ Watch this [**post**](https://www.tsdm39.net/forum.php?mod=viewthread&tid=110119
 ![](https://kcloud.one/index.php/s/RSSAnimeTSDM_Diagram/download)
 
 # Ongoing
-- Auto edit post on TSDM.
+- Auto edit post on TSDM. (Postponed)
 
 # Changelog
+## [[v1.5](https://github.com/lee850220/AnimeRSSforTSDM/releases/tag/v1.5)] - 2022-09-03
+### Added
+- Support multiple BT task type 
+    - single file
+    - folder with one episode
+    - folder with multiple episode
+- Support SP and versions with same episode
+- Auto upload to episode collection folder by Groups, Subs & Types
+
+### Fixed
+- Enhanced logic to detect episode and anime name
+- Enhanced logic to detect duplicate task
+- Enhanced error handling
+
 ## [[v1.4](https://github.com/lee850220/AnimeRSSforTSDM/releases/tag/v1.4)] - 2022-05-22
 ### Added
 - Support RSS for NYAA.

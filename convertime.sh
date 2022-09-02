@@ -12,7 +12,8 @@ function displaytime {
   printf '%d seconds\n' $S
 }
 
-STDIN="$(< /dev/stdin)"
+#STDIN="$(< /dev/stdin)"
+
 if [ "$1" = "" ]; then 
   displaytime "$STDIN"
 else

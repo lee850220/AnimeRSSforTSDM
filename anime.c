@@ -602,6 +602,9 @@ void addDownload(void) {
         fp_config = fopen(cmd, "a");
         if (fp_config == NULL) {printf(MSG_ERROR"Cannot open upload config.\n"); cleanenv();}
         fprintf(fp_config, "%s\n", PUBLISH.ptitle);
+        fprintf(fp_config, "%s\n", PUBLISH.link);       // publish URL
+        strftime(buf, BUF_SIZE, "%Y/%m/%d %H:%M:%S (%a)", localtime(&PUBLISH.pubTime));
+        fprintf(fp_config, "%s\n", buf);                // publish date
 
         // output sub-post content to upload config
         memset(cmd, 0, sizeof(cmd));
