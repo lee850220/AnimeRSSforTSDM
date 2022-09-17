@@ -109,14 +109,14 @@ function RCDOWN {
 
 }
 
-function CHECK_UPLOAD {
+function UPLOAD_FAILED {
 
-    resp=$(BaiduPCS-Go meta "${uploadDIR}/${targetFile}" | grep "\[0\]" > /dev/null;echo $?)
-    if [ $resp -ne 0 ]; then
-        echo ${Notice}"File upload failed. Exit..."
-        exit
-    fi
-    
+    echo ${Notice}"File upload failed. Exit..."
+    curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+"Message=     Task failed. (reason: File upload failed)
+[Task]：     ${targetFile}";echo
+    exit
+
 }
 
 function GET_FILEID {
@@ -141,11 +141,11 @@ function GET_FILEID {
 
 function GET_FILEID_FAIL {
 
-echo " Failed."
-curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+    echo ${Notice}"Get fileID failed. Exit..."
+    curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task failed. (reason: cannot get fileID)
 [Task]：     ${targetFile}";echo
-exit
+    exit
 
 }
 
@@ -158,11 +158,11 @@ function CSHARE {
 
 function CSHARE_FAIL {
 
-echo " Failed."
-curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+    echo ${Notice}"Get share link failed. Exit..."
+    curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task failed. (reason: cannot get share link)
 [Task]：     ${NEW}";echo
-exit
+    exit
 
 }
 
@@ -287,32 +287,45 @@ fi
 
 # Upload to Baidu
 CHECK_INTERNET
-UL_START=$(date +%s)
-if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
-    echo "${Notice}Uploading files in \"${path}\" via BaiduPCS-Go..."
-    BaiduPCS-Go mkdir "${uploadDIR}/${filename}"
-    for file in $(ls "${path}"*.m[kp][4v]|sed 's/.*\///'); do
-        ORIGIN="${path}${header}${file%.*}"
+Retry=0
+while true
+do
+    UL_START=$(date +%s)
+    if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
+        echo "${Notice}Uploading files in \"${path}\" via BaiduPCS-Go..."
+        BaiduPCS-Go mkdir "${uploadDIR}/${filename}"
+        for file in $(ls "${path}"*.m[kp][4v]|sed 's/.*\///'); do
+            ORIGIN="${path}${header}${file%.*}"
+            FILENAME_PARSE
+            BaiduPCS-Go upload "${NEW}.rar" "${uploadDIR}/${filename}"
+        done
+        BaiduPCS-Go upload "${path}checksum.txt" "${uploadDIR}/${filename}"
+        NEW="${path}"
+        targetFile="${filename}"
+    else
+        echo "${Notice}Uploading \"${targetFile}\" via BaiduPCS-Go..."
+        ORIGIN="${path}${targetFile}"
         FILENAME_PARSE
-        BaiduPCS-Go upload "${NEW}.rar" "${uploadDIR}/${filename}"
-    done
-    BaiduPCS-Go upload "${path}checksum.txt" "${uploadDIR}/${filename}"
-    NEW="${path}"
-    targetFile="${filename}"
-else
-    echo "${Notice}Uploading \"${targetFile}\" via BaiduPCS-Go..."
-    ORIGIN="${path}${targetFile}"
-    FILENAME_PARSE
-    BaiduPCS-Go upload "${NEW}" ${uploadDIR}
-fi
-UL_FINISH=$(date +%s)
-echo "${Notice}Upload process terminated."
-targetFile=$(echo ${targetFile}|tr -d ",")
-CHECK_UPLOAD
+        BaiduPCS-Go upload "${NEW}" ${uploadDIR}
+    fi
+    UL_FINISH=$(date +%s)
 
-if [ "${ARG2}" == "NP" ] || [ "${ARG3}" == "NP" ]; then 
-    exit
-fi
+    # Check Upload
+    targetFile=$(echo ${targetFile}|tr -d ",")
+    resp=$(BaiduPCS-Go meta "${uploadDIR}/${targetFile}" | grep "\[0\]" > /dev/null;echo $?)
+    if [ $resp -ne 0 ]; then
+        (( Retry = Retry + 1 ))
+        if (( $Retry == 3 )); then
+            UPLOAD_FAILED
+        fi
+        echo "Failed. Sleep 60 sec and retry. Retry ${Retry}/3..."
+        sleep 60
+    else
+        echo "${Notice}Upload successed."
+        break
+    fi
+done
+
 
 # Moving file to specific directory
 CHECK_INTERNET
@@ -348,7 +361,7 @@ else
         done
         BaiduPCS-Go rm "${uploadDIR}/${filename}"
     else
-        resp=$(BaiduPCS-Go meta \"${DEST}/${targetFile}\"|grep "\[0\]" >& /dev/null;echo $?)
+        resp=$(BaiduPCS-Go meta "${DEST}/${targetFile}"|grep "\[0\]" >& /dev/null;echo $?)
         if [ $resp -eq 0 ]; then
             echo "${Notice}\"${targetFile}\" already exist."
             BaiduPCS-Go rm "${SRC}"
@@ -357,6 +370,11 @@ else
         fi
     fi
     MOVED=true
+fi
+
+if [ "${ARG2}" == "NP" ] || [ "${ARG3}" == "NP" ]; then
+    CLEAN_FILES
+    exit
 fi
 
 # Get file ID
@@ -437,11 +455,21 @@ if you find any problems please contact me ASAP, thanks.*****[/align][/b]
 [/table]")
 echo $response; echo
 RCDOWN
-TID=$(echo ${response}|sed "s/.*tid=\([0-9]*\)&.*/\1/")
-echo "${Notice}Posting sub-post on TSDM..."
-RCUP
-curl -m ${CurlTimeout} -sX POST "https://www.tsdm39.net/forum.php?mod=post&action=reply&fid=${FID}&tid=${TID}&replysubmit=yes" --header "${TSDM_Cookie}" --form "formhash=${FORMHASH}" --form "typeid=${TYPE}" --form 'usesig="1"' --form "message=${post}"; echo
-RCDOWN
+
+TID=$(echo ${response}|grep -o "tid=\([0-9]*\)&"|sed "s/.*tid=\([0-9]*\)&.*/\1/")
+if [[ $TID != "" ]]; then
+    echo "${Notice}Posting sub-post on TSDM..."
+    RCUP
+    curl -m ${CurlTimeout} -sX POST "https://www.tsdm39.net/forum.php?mod=post&action=reply&fid=${FID}&tid=${TID}&replysubmit=yes" --header "${TSDM_Cookie}" --form "formhash=${FORMHASH}" --form "typeid=${TYPE}" --form 'usesig="1"' --form "message=${post}"; echo
+    RCDOWN
+else
+    echo ${Notice}"TSDM post failed. Exit..."
+    curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+"Message=     Task failed. (reason: TSDM post failed)
+[Task]：      ${NEW}"
+    exit
+fi
+
 
 # Push notify
 CHECK_INTERNET
@@ -451,7 +479,6 @@ DL_FINISH=$(tail -1 "${UploadConfig}"|awk '{print $2}')
 
 if [ -z "${DL_START}" ] || [ -z "${DL_FINISH}" ]; then
     SKIP=true
-    echo ${Notice}"Skipping push notification."
 else
     SKIP=false
 fi

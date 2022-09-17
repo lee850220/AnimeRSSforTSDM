@@ -7,6 +7,8 @@
 
 # Aria2下載目錄
 downloadpath='/var/www/html/nextcloud/data/lee850220/files/Aria2'
+TSDM='/DATA/TSDM/TEMP/'
+DL='/DATA/DL/'
 scriptpath='/etc/aria2'
 
 #=====================================================
@@ -15,15 +17,26 @@ function CLEAN_FILES {
 	hash=$(aria2mgt "$path".aria2 | awk -F ':' '{print $4}')
 	SAVEIFS=$IFS
 	IFS=$(echo -en "\n\b")
+	FOUND=false
+	REMOVED=false
 	for file in $(ls $downloadpath/*.torrent); do
 		hash1=$(transmission-show -i "$file" | grep Hash | awk '{print $2}')
-		if [ "$hash" = "$hash1" ]
-		then
+		if [ "$hash" = "$hash1" ]; then
 			rm -vf "$file" "$file.aria2"
+			resp=$(echo $?)
+			if [ $resp -eq 0 ]; then
+				REMOVED=true
+			fi
+			FOUND=true
+			break
 		fi
 	done
 	IFS=$SAVEIFS
-	rm -vf "$path.aria2" "$path.complete" "$path.upload" "${downloadpath}/[Inanity緋雪@TSDM]${filename_noext}.rar"
+	if ! ${FOUND}; then
+		rm -vf "$path.aria2" "$path.complete" "$path.upload" "${downloadpath}/[Inanity緋雪@TSDM]${filename_noext}.rar"
+	else
+
+	fi
 }
 
 function NORMAL {
@@ -31,7 +44,7 @@ function NORMAL {
 	if [ "${path##*.}" != "torrent" ]
 	then
 		echo [DL_Stop.sh]" "moving file...
-		mv -v "$path" "$downloadpath/TEMP"
+		mv -v "$path" "$DL"
 	else
 		echo [DL_Stop.sh]" "This is torrent file, DO NOT move.
 	fi
@@ -43,7 +56,7 @@ function BT_SINGLE {
 	echo [DL_Stop.sh]" "[Single BT Mode]
 	echo [DL_Stop.sh]" "moving file...
 	if [[ -f "$path.upload" ]]; then
-		mv -v "$path" "$downloadpath/TEMP"
+		mv -v "$path" "$TSDM"
 		if [ "$?" != "0" ]; then rm -rfv "$path"; fi
 	fi
 	CLEAN_FILES
@@ -54,7 +67,7 @@ function BT_FOLDER {
 	echo [DL_Stop.sh]" "[Multi BT Mode]
 	echo [DL_Stop.sh]" "moving file...
 	if [[ -f "$path.upload" ]]; then
-		mv -v "$path" "$downloadpath/TEMP"
+		mv -v "$path" "$TSDM"
 		if [ "$?" != "0" ]; then rm -rfv "$path"; fi
 	fi
 	CLEAN_FILES
