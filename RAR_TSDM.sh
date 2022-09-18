@@ -31,6 +31,8 @@ else
     path="${path}/"
 fi
 
+path=$(echo $path|sed 's,\/\/,/,g')
+
 # For RAR
 header=[Inanity緋雪@TSDM]
 PW=Inanity緋雪@僅分享於TSDM
@@ -56,7 +58,7 @@ LINE_API=https://notify-api.line.me/api/notify
 LINE_TOKEN=$(cat ${ConfigFile} | grep LINE= | sed 's/.*=//' | sed 's/[^0-9A-Za-z]//')
 
 # For TSDM
-#FID=405 #吸血貓
+FID=405 #吸血貓
 FID=8  #動漫下載
 TSDM_Cookie=$(cat ${ConfigFile} | grep TSDM_COOKIE | sed "s/.*'\(.*\)'/\1/")
 FORMHASH=83cb7be3
@@ -186,6 +188,7 @@ function CLEAN_FILES {
     else
         rm -rfv "${NEW}"
     fi
+    rm -fv "${NEW}.NP"
 }
 
 function GET_EPISODE {
@@ -221,7 +224,7 @@ function GET_EPISODE {
 function CHECK_FOLDER {
     
     resp=$(echo ${episode}|grep "[0-9]\-[0-9]" > /dev/null;echo $?)
-    if [[ $resp -eq 0 ]]; then
+    if ([[ $resp -eq 0 ]] || ${NOUP}); then
         SINGLE_EP=false
         echo ${Notice}"[Folder Mode] Multiple!!"
     else
@@ -243,9 +246,9 @@ function GET_FILESIZE {
 
 ####################################################### MAIN ############################################################
 
+NOUP=false
 if [[ ! -f ${UploadConfig} ]]; then 
-    echo "${Notice}\"${filename_ext}\" no need to upload. Exit..."
-    exit
+    NOUP=true
 fi
 GET_EPISODE
 
@@ -263,10 +266,11 @@ if [ "${ARG2}" = "F" ]; then
         MD5=$(md5sum "${NEW}" | awk '{print $1}')
         SHA1=$(sha1sum "${NEW}" | awk '{print $1}')
     else
-        echo "MD5        SHA1        FILENAME" > "${path}checksum.txt"
+        echo "MD5                              SHA1                                      FILENAME" > "${path}checksum.txt"
         for file in $(ls "${path}"*.m[kp][4v]|sed 's/.*\///'); do
             ORIGIN="${path}${header}${file%.*}"
             FILENAME_PARSE
+            echo "rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}.rar" "${path}${file}""
             rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}.rar" "${path}${file}"
             MD5=$(md5sum "${NEW}.rar" | awk '{print $1}')
             SHA1=$(sha1sum "${NEW}.rar" | awk '{print $1}')
@@ -283,6 +287,11 @@ else
     rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}" "${path}${filename_ext}"
     MD5=$(md5sum "${NEW}" | awk '{print $1}')
     SHA1=$(sha1sum "${NEW}" | awk '{print $1}')
+fi
+
+if ${NOUP}; then
+    echo "${Notice}\"${filename_ext}\" no need to upload. Exit..."
+    exit
 fi
 
 # Upload to Baidu

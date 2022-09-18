@@ -60,7 +60,13 @@ then
 		hash1=$(transmission-show -i "$file" | grep Hash | awk '{print $2}')
 		if [ "$hash" = "$hash1" ]; then
 			echo ${Notice}"BT mode"
-			[ -e "$path.upload" ] && echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}"
+			if [ -e "$path.upload" ]; then
+				if [ -e "${path}.NP" ]; then
+					echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}" "NP"
+				else
+					echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}"
+				fi
+			fi
 			BT
 		fi
 	done
@@ -70,7 +76,13 @@ then
 elif [ "$path" != "$filepath" ]
 then
 	# Folder (need fix)
-	[ -e "$path.upload" ] && echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}" "F"
+	if [ -e "$path.upload" ]; then
+		if [ -e "${path}.NP" ]; then
+			echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}" "F" "NP"
+		else
+			echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}" "F"
+		fi
+	fi
 	BT        
 fi
 

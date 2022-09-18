@@ -17,26 +17,20 @@ function CLEAN_FILES {
 	hash=$(aria2mgt "$path".aria2 | awk -F ':' '{print $4}')
 	SAVEIFS=$IFS
 	IFS=$(echo -en "\n\b")
-	FOUND=false
 	REMOVED=false
 	for file in $(ls $downloadpath/*.torrent); do
 		hash1=$(transmission-show -i "$file" | grep Hash | awk '{print $2}')
 		if [ "$hash" = "$hash1" ]; then
-			rm -vf "$file" "$file.aria2"
-			resp=$(echo $?)
-			if [ $resp -eq 0 ]; then
-				REMOVED=true
-			fi
-			FOUND=true
+			rm -fv "$file"
+			REMOVED=true
 			break
 		fi
 	done
 	IFS=$SAVEIFS
-	if ! ${FOUND}; then
-		rm -vf "$path.aria2" "$path.complete" "$path.upload" "${downloadpath}/[Inanity緋雪@TSDM]${filename_noext}.rar"
-	else
-
+	if ! ${REMOVED}; then
+		echo ${Notice}"Cannot found torrent file."
 	fi
+	rm -fv "$path.aria2" "$path.complete" "$path.upload" "$path.NP" "${downloadpath}/[Inanity緋雪@TSDM]${filename_noext}.rar"
 }
 
 function NORMAL {
@@ -58,6 +52,8 @@ function BT_SINGLE {
 	if [[ -f "$path.upload" ]]; then
 		mv -v "$path" "$TSDM"
 		if [ "$?" != "0" ]; then rm -rfv "$path"; fi
+	else
+		mv -v "$path" "$DL"
 	fi
 	CLEAN_FILES
 	exit 0
@@ -69,6 +65,8 @@ function BT_FOLDER {
 	if [[ -f "$path.upload" ]]; then
 		mv -v "$path" "$TSDM"
 		if [ "$?" != "0" ]; then rm -rfv "$path"; fi
+	else
+		mv -v "$path" "$DL"
 	fi
 	CLEAN_FILES
 	exit 0

@@ -111,6 +111,7 @@ typedef struct publish {
 typedef struct tm TIME, * TIME_ptr;
 
 bool        is_NOUP;
+bool        is_NOP;
 int         RSS_CNT         = 0;
 int         RSS_PUB_CNT     = 0;
 int         MODE;
@@ -260,6 +261,7 @@ void getRSS(void) {
         
         rm_newline(URL_RSS);
         is_NOUP = false;
+        is_NOP = false;
         ptr = strchr(URL_RSS, ' ');         // get post title or NO upload flag(N)
         if (ptr != NULL) {
             
@@ -274,7 +276,17 @@ void getRSS(void) {
                 if (pptr != NULL) {
 
                     *pptr++ = 0;
-                    PUBLISH.order = atoi(pptr);                 
+                    PUBLISH.order = atoi(pptr);
+                    
+                    ppptr = strchr(pptr, ' ');
+                    if (ppptr != NULL) {
+                        
+                        *ppptr++ = 0;
+                        if (!strcmp(ppptr, "NP")) {
+                            is_NOP = true;
+                        }
+
+                    }
 
                 } else { printf(MSG_ERROR"Illegal format.\n"); cleanenv(); }
                 strcpy(PUBLISH.ptitle, ptr);
@@ -590,7 +602,14 @@ void addDownload(void) {
     pclose(fp_filename);
 
     if (!is_NOUP) {
-    
+        
+        // create .NP to identify that script will no post this file to TSDM.
+        if (is_NOP) {
+            memset(cmd, 0, sizeof(cmd));
+            sprintf(cmd, "rm -f '%s%s.NP';sudo -u apache touch '%s%s.NP'", DLDIR, PUBLISH.filename, DLDIR, PUBLISH.filename);
+            system(cmd);
+        }
+
         // create .upload to identify that script will upload this file to baidu.
         memset(cmd, 0, sizeof(cmd));
         sprintf(cmd, "rm -f '%s%s.upload';sudo -u apache touch '%s%s.upload'", DLDIR, PUBLISH.filename, DLDIR, PUBLISH.filename);
