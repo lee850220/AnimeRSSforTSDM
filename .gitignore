@@ -29,6 +29,8 @@ pcs_config.json
 pcs_uploading.json
 TSDM.txt
 ren.sh
+BDshare.sh
+BDlist.sh
 *.o
 .depend
 *
