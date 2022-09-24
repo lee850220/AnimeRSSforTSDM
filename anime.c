@@ -39,7 +39,9 @@
 #define FILENAME_GETFNAME   "/etc/aria2/getfilename.sh"
 #define FILENAME_URLENC     "/etc/aria2/URLdecode.py"
 #define FILENAME_PXML       "/etc/aria2/prettyXML.py"
-#define CMD_MOVETS          "mv "FILENAME_RSSTIME"_tmp "FILENAME_RSSTIME
+
+#define CMD_CPTS            "cp -f "FILENAME_RSSTIME"_tmp "FILENAME_RSSTIME
+#define CMD_RMTS            "rm -f "FILENAME_RSSTIME"_tmp "
 
 #define POST_DELIMIT        "$$$$$"
 #define ITEM_HEAD           "<item>"
@@ -114,6 +116,7 @@ bool        is_NOUP;
 bool        is_NOP;
 int         RSS_CNT         = 0;
 int         RSS_PUB_CNT     = 0;
+int         TASK_CNT        = 0;
 int         MODE;
 char        URL_RSS         [BUF_SIZE];
 char        LINE_TOKEN      [BUF_SIZE];
@@ -184,8 +187,10 @@ int main(int argc, char *argv[]) {
     update_checkpoint();
     time(&terminated);
     convert_time(buf, terminated - CUR_TIME);
-    printf("Checked %d RSS, and %d has new. Time Elapsed: %s\n", RSS_CNT, RSS_PUB_CNT, buf);
+    printf("Checked %d RSS, and %d has new. Task %d created. Time Elapsed: %s\n", RSS_CNT, RSS_PUB_CNT, TASK_CNT, buf);
     printdline();
+    system(CMD_CPTS);
+    system(CMD_RMTS);
     return 0;
 
 }
@@ -317,7 +322,6 @@ void getRSS(void) {
     }
     fclose(fp_list);
     if (fp_tlist != NULL) fclose(fp_tlist);
-    system(CMD_MOVETS);
 
 }
 
@@ -367,6 +371,7 @@ void getXML(const char * const URL) {
             hasNew = true;
             task_notify();
             addDownload();
+            TASK_CNT++;
 
         }        
 
