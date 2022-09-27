@@ -14,7 +14,7 @@ downloadpath='/var/www/html/nextcloud/data/lee850220/files/Aria2'
 Notice="[DL_BT.sh]: "
 
 function NORMAL {
-	echo ${Notice}"NORMAL mode, DO NOTHING."
+	echo ${Notice}"task="${filename}" NORMAL mode, DO NOTHING."
 	exit 0
 }
 
@@ -47,11 +47,15 @@ fi
 if [ $2 -eq 0 ]
     then
 		# No File
-        echo "${Notice}""[No file exist]"
+        echo ${Notice}"[No file exist]"
         exit 0
 elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
 then
 	# One File
+	if [[ $path == *"torrent" ]]; then
+  		echo ${Notice}"torrent file. Skip..."
+		exit 0
+	fi
 	# find torrent
 	hash=$(aria2mgt "$path".aria2 | awk -F ':' '{print $4}')
 	SAVEIFS=$IFS
@@ -71,7 +75,7 @@ then
 		fi
 	done
 	IFS=$SAVEIFS
-	NORMAL;
+	NORMAL
 	
 elif [ "$path" != "$filepath" ]
 then

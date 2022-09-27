@@ -99,6 +99,7 @@ if [[ $MODE = "c" ]]; then
                     do
                         read -r -p "${Notice}Share links of the files listed will be deleted. Are you sure? [Y/n] " response
                         if [[ "$response" = "Y" ]]; then
+                            echo ${Notice}"delete $(echo $id | wc -w) link(s)."
                             BaiduPCS-Go share c `echo ${id}`
                             break
                         elif [[ "$response" = "n" ]]; then
@@ -119,10 +120,11 @@ if [[ $MODE = "c" ]]; then
         for ((i=$page; i>=1; i--))
         do
             echo ${Notice}"Cleaning page ${i}..."
-            resp=$(curl -s -m 180 -X POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${i}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0"| grep -o "\{[^{}]*\}" | grep -e "分享已过期" -e "分享的文件已被删除" | grep -o "shareId[^,]*," | grep -o [0-9]* | tr "\n" " ")
-            if [[ $resp == "" ]]; then
+            resp=$(curl -s -m 180 -X POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${i}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0"| grep -o "\{[^{}]*\}" | grep -e "分享已过期" -e "分享的文件已被删除" | grep -o "shareId[^,]*," | tr -cd "0-9\n" | tr "\n" " ")
+            if [[ "$resp" == "" ]]; then
                 echo ${Notice}"No need to clean."
             else
+                echo ${Notice}"delete $(echo $resp | wc -w) link(s)."
                 BaiduPCS-Go share c `echo ${resp}`
             fi
         done

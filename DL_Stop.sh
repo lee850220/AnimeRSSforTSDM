@@ -35,8 +35,7 @@ function CLEAN_FILES {
 
 function NORMAL {
 	echo [DL_Stop.sh]" "[NORMAL Mode]
-	if [ "${path##*.}" != "torrent" ]
-	then
+	if [ "${path}" == *"torrent" ];	then
 		echo [DL_Stop.sh]" "moving file...
 		mv -v "$path" "$DL"
 	else
@@ -88,6 +87,10 @@ if [ $2 -eq 0 ]
 elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
     then
 		# One File
+		if [[ $path == *"torrent" ]]; then
+  			echo ${Notice}"torrent file. Skip..."
+			exit 0
+		fi
 		hash=$(aria2mgt "$path".aria2 | awk -F ':' '{print $4}')
 		SAVEIFS=$IFS
 		IFS=$(echo -en "\n\b")

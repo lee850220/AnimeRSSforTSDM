@@ -9,6 +9,7 @@ CurlTimeout=15
 ARG1="$1"
 ARG2="$2"
 ARG3="$3"
+NP=false
 path=
 
 # Check target file
@@ -26,9 +27,13 @@ fi
 
 # Get filepath
 if [ "$path" = "$filename_ext" ]; then
-    path=$(pwd)
+    path=$(pwd)/
 else
     path="${path}/"
+fi
+
+if [ "${ARG2}" == "NP" ] || [ "${ARG3}" == "NP" ]; then
+    NP=ture
 fi
 
 path=$(echo $path|sed 's,\/\/,/,g')
@@ -59,7 +64,7 @@ LINE_TOKEN=$(cat ${ConfigFile} | grep LINE= | sed 's/.*=//' | sed 's/[^0-9A-Za-z
 
 # For TSDM
 FID=405 #吸血貓
-FID=8  #動漫下載
+#FID=8  #動漫下載
 TSDM_Cookie=$(cat ${ConfigFile} | grep TSDM_COOKIE | sed "s/.*'\(.*\)'/\1/")
 FORMHASH=83cb7be3
 MUTEX=/etc/aria2/TSDM.lock
@@ -193,10 +198,18 @@ function CLEAN_FILES {
 
 function GET_EPISODE {
 
-    resp=$(echo "${filename}"|grep "\[[0-9]\{2,4\}\-[0-9]\{2,4\}\]" > /dev/null;echo $?)
+    resp=$(echo "${filename}"|grep "\[[0-9]\{2,4\}\-[0-9]\{2,4\}[^]0-9]*\]" > /dev/null;echo $?)
     if [ $resp -eq 0 ]; then
         # multiple episode (bracket)
-        episode=$(echo "${filename}"|grep -o "\[[0-9]\{2,4\}\-[0-9]\{2,4\}\]"|tr -d "[]")
+        episode=$(echo "${filename}"|grep -o "\[[0-9]\{2,4\}\-[0-9]\{2,4\}[^]0-9]*\]"|tr -d "[]A-Za-z")
+        start_ep=$(echo $episode | awk -F'-' '{print $1}')
+        end_ep=$(echo $episode | awk -F'-' '{print $2}')
+        (( epis = end_ep - start_ep + 1 ))
+        if [ $epis -ge 12 ]; then
+            echo ${Notice}"Finish Episodes!!! Do NOT post."
+            NP=true
+        fi
+        SINGLE_EP=false
     else
         resp=$(echo "${filename}"|grep "\[\(SP\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}\]" > /dev/null;echo $?)
         if [ $resp -eq 0 ]; then
@@ -217,21 +230,9 @@ function GET_EPISODE {
                 episode=$(echo "${filename}"|grep -o "\ \(SP\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}$"|tr -d " ")
             fi
         fi
-    fi
-    
-}
-
-function CHECK_FOLDER {
-    
-    resp=$(echo ${episode}|grep "[0-9]\-[0-9]" > /dev/null;echo $?)
-    if ([[ $resp -eq 0 ]] || ${NOUP}); then
-        SINGLE_EP=false
-        echo ${Notice}"[Folder Mode] Multiple!!"
-    else
         SINGLE_EP=true
-        echo ${Notice}"[Folder Mode] Single!"
     fi
-
+    
 }
 
 function GET_FILESIZE {
@@ -254,11 +255,11 @@ GET_EPISODE
 
 # Package file by RAR
 if [ "${ARG2}" = "F" ]; then
-    CHECK_FOLDER
     SAVEIFS=$IFS
 	IFS=$(echo -en "\n\b")
 
     if ${SINGLE_EP}; then
+        echo ${Notice}"[Folder Mode] Single!"
         echo "${Notice}Packaging \"${filename_ext}\" with RAR..."
         ORIGIN="${path}${targetFile}"
         FILENAME_PARSE
@@ -266,6 +267,7 @@ if [ "${ARG2}" = "F" ]; then
         MD5=$(md5sum "${NEW}" | awk '{print $1}')
         SHA1=$(sha1sum "${NEW}" | awk '{print $1}')
     else
+        echo ${Notice}"[Folder Mode] Multiple!!"
         echo "MD5                              SHA1                                      FILENAME" > "${path}checksum.txt"
         for file in $(ls "${path}"*.m[kp][4v]|sed 's/.*\///'); do
             ORIGIN="${path}${header}${file%.*}"
@@ -381,7 +383,7 @@ else
     MOVED=true
 fi
 
-if [ "${ARG2}" == "NP" ] || [ "${ARG3}" == "NP" ]; then
+if ${NP}; then
     CLEAN_FILES
     exit
 fi
