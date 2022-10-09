@@ -10,6 +10,9 @@ downloadpath='/var/www/html/nextcloud/data/lee850220/files/Aria2'
 TSDM='/DATA/TSDM/TEMP/'
 DL='/DATA/DL/'
 scriptpath='/etc/aria2'
+echo $1
+echo $2
+echo $3
 
 #=====================================================
 function CLEAN_FILES {
@@ -97,7 +100,7 @@ elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
 		for file in $(ls $downloadpath/*.torrent); do
 			hash1=$(transmission-show -i "$file" | grep Hash | awk '{print $2}')
 			if [ "$hash" = "$hash1" ]; then 
-				[ -e "$path.upload" ] && /etc/aria2/rar_TSDM.sh "${path}"
+				#[ -e "$path.upload" ] && /etc/aria2/RAR_TSDM.sh "${path}"
 				BT_SINGLE
 			fi
 		done

@@ -10,6 +10,7 @@ ARG1="$1"
 ARG2="$2"
 ARG3="$3"
 NP=false
+FIN=false
 path=
 
 # Check target file
@@ -27,13 +28,16 @@ fi
 
 # Get filepath
 if [ "$path" = "$filename_ext" ]; then
-    path=$(pwd)/
+    path=$(pwd)/$path/
 else
     path="${path}/"
 fi
 
-if [ "${ARG2}" == "NP" ] || [ "${ARG3}" == "NP" ]; then
-    NP=ture
+if ([ "${ARG2}" == "NP" ] || [ "${ARG3}" == "NP" ] || [ "${ARG2}" == "FIN" ]); then
+    NP=true
+    if [ "${ARG2}" == "FIN" ]; then
+        FIN=true
+    fi
 fi
 
 path=$(echo $path|sed 's,\/\/,/,g')
@@ -66,7 +70,7 @@ LINE_TOKEN=$(cat ${ConfigFile} | grep LINE= | sed 's/.*=//' | sed 's/[^0-9A-Za-z
 FID=405 #吸血貓
 #FID=8  #動漫下載
 TSDM_Cookie=$(cat ${ConfigFile} | grep TSDM_COOKIE | sed "s/.*'\(.*\)'/\1/")
-FORMHASH=83cb7be3
+FORMHASH=8114d641
 MUTEX=/etc/aria2/TSDM.lock
 
 ############################################ FUNCTION DEFINITION #################################################
@@ -82,7 +86,7 @@ function CHECK_SEASON {
         elif [ $season == "7" ]; then
             TYPE=52
         elif [ $season == "10" ]; then
-            TYPE=53
+            TYPE=45
         fi
     elif [ $FID -eq 405 ]; then
         TYPE=3142   # 4月
@@ -131,8 +135,11 @@ function GET_FILEID {
     #fileID=$(curl -sX GET "${LIST_API}?app_id=${app_id}&bdstoken=${bdstoken}&channel=chunlei&clienttype=0&desc=0&dir=${uploadDIR}&logid=${logid}==&num=100&order=name&page=1&showempty=0&web=1" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" | jq '.' | fgrep -B 13 "${targetFile}" | grep "fs_id" | sed 's/[^0-9]//g')
     if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
         if ${MOVED}; then
-            cmd="BaiduPCS-Go meta "${FILELIST}
-            fileID=$(${cmd} | grep fs_id | awk '{print $2}' | tr "\n" "," | sed "s/.$//")
+            for file in ${FILELIST}; do
+                file=$(echo $file|tr "%" " ")
+                fileID=$(BaiduPCS-Go meta "$file"| grep fs_id | awk '{print $2}' | tr "\n" ",")"$fileID"
+            done
+            fileID=$(echo $fileID|sed 's/,$//')
         else
             fileID=$(BaiduPCS-Go meta "${uploadDIR}/${targetFile}/*" | grep fs_id | awk '{print $2}' | tr "\n" "," | sed "s/.$//")
         fi
@@ -198,17 +205,34 @@ function CLEAN_FILES {
 
 function GET_EPISODE {
 
-    resp=$(echo "${filename}"|grep "\[[0-9]\{2,4\}\-[0-9]\{2,4\}[^]0-9]*\]" > /dev/null;echo $?)
+    resp=$(echo "${filename}"|grep "[^0-9A-Za-z][0-9]\{2,4\}\-[0-9]\{2,4\}\(End\)\{0,1\}\(END\)\{0,1\}\(Fin\)\{0,1\}\(FIN\)\{0,1\}\(Fin\)\{0,1\}[^0-9A-Za-z]*" > /dev/null;echo $?)
     if [ $resp -eq 0 ]; then
         # multiple episode (bracket)
-        episode=$(echo "${filename}"|grep -o "\[[0-9]\{2,4\}\-[0-9]\{2,4\}[^]0-9]*\]"|tr -d "[]A-Za-z")
-        start_ep=$(echo $episode | awk -F'-' '{print $1}')
-        end_ep=$(echo $episode | awk -F'-' '{print $2}')
-        (( epis = end_ep - start_ep + 1 ))
-        if [ $epis -ge 12 ]; then
-            echo ${Notice}"Finish Episodes!!! Do NOT post."
-            NP=true
+        episode=$(echo "${filename}"|grep -o "[^0-9A-Za-z][0-9]\{2,4\}\-[0-9]\{2,4\}\(End\)\{0,1\}\(END\)\{0,1\}\(Fin\)\{0,1\}\(FIN\)\{0,1\}\(Fin\)\{0,1\}[^0-9A-Za-z]*"|tr -d " []()")
+        resp=$(echo "$episode"|grep -e "FIN" -e "Fin" -e "fin" -e "END" -e "End" > /dev/null;echo $?)
+        if [ $resp -eq 0 ]; then
+            episode=$(echo $episode|tr -d "A-Za-z")
+            start_ep=$(echo $episode | awk -F'-' '{print $1}')
+            end_ep=$(echo $episode | awk -F'-' '{print $2}')
+            (( epis = end_ep - start_ep + 1 ))
+            if [ $epis -ge 12 ]; then
+                echo ${Notice}"Finish Episodes!!! Do NOT post."
+                FIN=true
+                NP=true
+            fi
+        else
+            start_ep=$(echo $episode | awk -F'-' '{print $1}')
+            end_ep=$(echo $episode | awk -F'-' '{print $2}')
+            (( epis = end_ep - start_ep + 1 ))
+            if [ $epis -ge 12 ]; then
+                echo ${Notice}"Finish Episodes!!! Do NOT post."
+                FIN=true
+                NP=true
+            fi
         fi
+        SINGLE_EP=false
+    elif ${FIN}; then
+        # finish episode
         SINGLE_EP=false
     else
         resp=$(echo "${filename}"|grep "\[\(SP\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}\]" > /dev/null;echo $?)
@@ -232,7 +256,13 @@ function GET_EPISODE {
         fi
         SINGLE_EP=true
     fi
-    
+
+    if [[ $episode == "" ]]; then
+        echo ${Notice}"Cannot find any episode info. Maybe finish episode. Do NOT post."
+        FIN=true
+        NP=true
+    fi
+
 }
 
 function GET_FILESIZE {
@@ -254,10 +284,9 @@ fi
 GET_EPISODE
 
 # Package file by RAR
-if [ "${ARG2}" = "F" ]; then
+if ([ "${ARG2}" = "F" ] || ${FIN}); then
     SAVEIFS=$IFS
 	IFS=$(echo -en "\n\b")
-
     if ${SINGLE_EP}; then
         echo ${Notice}"[Folder Mode] Single!"
         echo "${Notice}Packaging \"${filename_ext}\" with RAR..."
@@ -268,15 +297,11 @@ if [ "${ARG2}" = "F" ]; then
         SHA1=$(sha1sum "${NEW}" | awk '{print $1}')
     else
         echo ${Notice}"[Folder Mode] Multiple!!"
-        echo "MD5                              SHA1                                      FILENAME" > "${path}checksum.txt"
         for file in $(ls "${path}"*.m[kp][4v]|sed 's/.*\///'); do
             ORIGIN="${path}${header}${file%.*}"
             FILENAME_PARSE
             echo "rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}.rar" "${path}${file}""
             rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}.rar" "${path}${file}"
-            MD5=$(md5sum "${NEW}.rar" | awk '{print $1}')
-            SHA1=$(sha1sum "${NEW}.rar" | awk '{print $1}')
-            echo ${MD5} ${SHA1} "${header}${file%.*}.rar" >> "${path}checksum.txt"
         done
         MD5="參見鏈接內的checksum.txt (非完結合集不提供)"
         SHA1="參見鏈接內的checksum.txt (非完結合集不提供)"
@@ -289,6 +314,21 @@ else
     rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}" "${path}${filename_ext}"
     MD5=$(md5sum "${NEW}" | awk '{print $1}')
     SHA1=$(sha1sum "${NEW}" | awk '{print $1}')
+fi
+
+if ${FIN}; then
+    SAVEIFS=$IFS
+    IFS=$(echo -en "\n\b")
+    echo "${Notice}Calculating checksum..."
+    echo "MD5                              SHA1                                      FILENAME" > "${path}checksum.txt"
+    echo $path
+    for file in $(ls "${path}"*.rar); do
+        MD5=$(md5sum "${file}" | awk '{print $1}')
+        SHA1=$(sha1sum "${file}" | awk '{print $1}')
+        echo ${MD5} ${SHA1} "${file##*/}"
+        echo ${MD5} ${SHA1} "${file##*/}" >> "${path}checksum.txt"
+    done
+    IFS=$SAVEIFS
 fi
 
 if ${NOUP}; then
@@ -305,11 +345,14 @@ do
     if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
         echo "${Notice}Uploading files in \"${path}\" via BaiduPCS-Go..."
         BaiduPCS-Go mkdir "${uploadDIR}/${filename}"
+        SAVEIFS=$IFS
+	    IFS=$(echo -en "\n\b")        
         for file in $(ls "${path}"*.m[kp][4v]|sed 's/.*\///'); do
             ORIGIN="${path}${header}${file%.*}"
             FILENAME_PARSE
             BaiduPCS-Go upload "${NEW}.rar" "${uploadDIR}/${filename}"
         done
+        IFS=$SAVEIFS
         BaiduPCS-Go upload "${path}checksum.txt" "${uploadDIR}/${filename}"
         NEW="${path}"
         targetFile="${filename}"
@@ -360,6 +403,8 @@ else
     # Check exist
     if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
         FILELIST=
+        SAVEIFS=$IFS
+	    IFS=$(echo -en "\n\b")
         for file in $(ls "${path}"*.rar|sed 's/.*\///'); do
             resp=$(BaiduPCS-Go meta \"${DEST}/${file}\"|grep "\[0\]" >& /dev/null;echo $?)
             if [ $resp -eq 0 ]; then
@@ -368,9 +413,10 @@ else
             else
                 BaiduPCS-Go mv "${uploadDIR}/${filename}/${file}" "${DEST}"
             fi
-            FILELIST="${DEST}/${file} ${FILELIST}"
+            FILELIST=$(echo ${DEST}/${file}|tr " " "%")" ${FILELIST}"
         done
         BaiduPCS-Go rm "${uploadDIR}/${filename}"
+        IFS=$SAVEIFS
     else
         resp=$(BaiduPCS-Go meta "${DEST}/${targetFile}"|grep "\[0\]" >& /dev/null;echo $?)
         if [ $resp -eq 0 ]; then
@@ -436,7 +482,7 @@ CHECK_INTERNET
 echo "${Notice}Posting main post on TSDM..."
 pubURL=$(head -2 "${UploadConfig}" | tail -1)
 pubDate=$(head -3 "${UploadConfig}" | tail -1)
-post=$(tail -n +5 "${UploadConfig}" | sed '$ d')
+post=$(tail -n +5 "${UploadConfig}" | head -n -3)
 GET_FILESIZE
 CHECK_SEASON
 RCUP

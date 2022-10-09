@@ -28,30 +28,19 @@ function CLEAN_FILES {
 
 function NORMAL {
 	echo [delete.sh]" "[NORMAL Mode]
-	if [ "${path##*.}" != "torrent" ]
-	then
-		echo [delete.sh]" "moving file...
-		mv -v "$path" "$downloadpath/TEMP"
-	else
-		echo [delete.sh]" "This is torrent file, DO NOT move.
-	fi
-	rm -fv "$path.aria2"
+	rm -fv "$path" "$path.aria2"
 	exit 0
 }
 
 function BT_SINGLE {
 	echo [delete.sh]" "[Single BT Mode]
 	CLEAN_FILES
-	echo [delete.sh]" "moving file...
-	mv -v "$path" "$downloadpath/TEMP"
 	exit 0
 }
 
 function BT_FOLDER {
 	echo [delete.sh]" "[Multi BT Mode]
 	CLEAN_FILES
-	echo [delete.sh]" "moving file...
-	mv -v "$path" "$downloadpath/TEMP"
 	exit 0
 }
 
