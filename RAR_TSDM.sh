@@ -1,4 +1,5 @@
 #!/bin/bash
+DEBUG=false
 PATH="/usr/local/bin:$PATH"
 ScriptDIR=/etc/aria2
 Notice="[RAR_TSDM.sh]: "
@@ -6,6 +7,8 @@ filename_ext="${1##*/}"
 UploadConfig="${1}.upload"
 ConfigFile=${ScriptDIR}/aria2.conf
 CurlTimeout=15
+RetryTimeout=15
+MAX_RETRY=5
 ARG1="$1"
 ARG2="$2"
 ARG3="$3"
@@ -21,14 +24,14 @@ fi
 
 # Check target file is folder
 if [ "${ARG2}" = "F" ]; then
-    path=$1
+    path=$1/
 else
     path="${1%/*}"
 fi
 
 # Get filepath
 if [ "$path" = "$filename_ext" ]; then
-    path=$(pwd)/$path/
+    path=$(pwd)/
 else
     path="${path}/"
 fi
@@ -68,7 +71,7 @@ LINE_TOKEN=$(cat ${ConfigFile} | grep LINE= | sed 's/.*=//' | sed 's/[^0-9A-Za-z
 
 # For TSDM
 FID=405 #吸血貓
-#FID=8  #動漫下載
+FID=8  #動漫下載
 TSDM_Cookie=$(cat ${ConfigFile} | grep TSDM_COOKIE | sed "s/.*'\(.*\)'/\1/")
 FORMHASH=8114d641
 MUTEX=/etc/aria2/TSDM.lock
@@ -165,18 +168,38 @@ function GET_FILEID_FAIL {
 
 function CSHARE {
 
-    Response=$(curl -m ${CurlTimeout} -sX POST "${SHARE_API}?bdstoken=${bdstoken}&channel=chunlei&web=1&app_id=${app_id}&logid=${logid}==&clienttype=0" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" --data-urlencode 'schannel=4' --data-urlencode 'channel_list=[]' --data-urlencode 'period=0' --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${fileID}]")
-    LINK=$(echo $Response | jq '.link' | sed 's/.*"\(.*\)".*/\1/')
+    Retry=0
+    while true
+    do
+        echo -n "${Notice}Creating share link of ${fileID}... "
+        resp=$(curl -m ${CurlTimeout} -sX POST "${SHARE_API}?bdstoken=${bdstoken}&channel=chunlei&web=1&app_id=${app_id}&logid=${logid}==&clienttype=0" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" --data-urlencode 'schannel=4' --data-urlencode 'channel_list=[]' --data-urlencode 'period=0' --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${fileID}]")
+        chk=$(echo "${resp}"| grep -o "errno[^,]*" | grep -o "[0-9]*")
+        if [ "$chk" = "0" ]; then
 
-}
+            echo "Success."
+            LINK=$(echo $resp | jq '.link' | sed 's/.*"\(.*\)".*/\1/')
+            echo "${Notice}Your link is \"${LINK}\" with password \"${sharePW}\""
+            break
 
-function CSHARE_FAIL {
+        else
 
-    echo ${Notice}"Get share link failed. Exit..."
-    curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+            if (( $Retry == $MAX_RETRY )); then
+                echo ${Notice}"Get share link failed. Exit..."
+                curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task failed. (reason: cannot get share link)
-[Task]：     ${NEW}";echo
-    exit
+[Task]：     ${filename_ext}";echo
+                exit
+            else
+                (( Retry = Retry + 1 ))
+                echo $resp
+                resp=$(echo $resp| grep -o "show_msg[^}]*" | tr -d "\"" | sed 's/show_msg://')
+                echo "Failed. Reason: ${resp}"
+                echo "${Notice}Sleep ${RetryTimeout} sec and retry. Retry ${Retry}/${MAX_RETRY}..."
+                sleep ${RetryTimeout}
+            fi
+
+        fi
+    done
 
 }
 
@@ -192,15 +215,6 @@ function CHECK_INTERNET {
         echo "${Notice}${filename_ext} Internet connection lost...Stop task."
         exit
     fi
-}
-
-function CLEAN_FILES {
-    if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
-        rm -rfv "${NEW}/*.rar"
-    else
-        rm -rfv "${NEW}"
-    fi
-    rm -fv "${NEW}.NP"
 }
 
 function GET_EPISODE {
@@ -235,10 +249,10 @@ function GET_EPISODE {
         # finish episode
         SINGLE_EP=false
     else
-        resp=$(echo "${filename}"|grep "\[\(SP\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}\]" > /dev/null;echo $?)
+        resp=$(echo "${filename}"|grep "\[\(SP\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}集\{0,1\}\]" > /dev/null;echo $?)
         if [ $resp -eq 0 ]; then
             # single episode (bracket)
-            episode=$(echo "${filename}"|grep -o "\[\(SP\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}\]"|tr -d "[]")
+            episode=$(echo "${filename}"|grep -o "\[\(SP\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}集\{0,1\}\]"|tr -d "[]集")
             resp=$(echo "${filename}"|grep "\[v[1-9]\]" > /dev/null;echo $?)
             if [[ $resp -eq 0 ]]; then
                 episode=${episode}$(echo "${filename}"|sed "s/.*\[\(v[1-9]\)\].*/\1/")
@@ -259,6 +273,9 @@ function GET_EPISODE {
 
     if [[ $episode == "" ]]; then
         echo ${Notice}"Cannot find any episode info. Maybe finish episode. Do NOT post."
+        curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+"Message=     [Warning]: Cannot find any episode info. Maybe finish episode. Do NOT post.
+[Task]：     ${filename_ext}";echo
         FIN=true
         NP=true
     fi
@@ -275,6 +292,14 @@ function GET_FILESIZE {
 
 }
 
+function CLEAN_FILES {
+    if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
+        rm -rfv "${path}*.rar"
+    else
+        rm -rfv "${NEW}"
+    fi
+    rm -fv "${NEW}.NP"
+}
 ####################################################### MAIN ############################################################
 
 NOUP=false
@@ -292,6 +317,7 @@ if ([ "${ARG2}" = "F" ] || ${FIN}); then
         echo "${Notice}Packaging \"${filename_ext}\" with RAR..."
         ORIGIN="${path}${targetFile}"
         FILENAME_PARSE
+        echo "rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}" "${path}""
         rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}" "${path}"
         MD5=$(md5sum "${NEW}" | awk '{print $1}')
         SHA1=$(sha1sum "${NEW}" | awk '{print $1}')
@@ -457,25 +483,7 @@ done
 
 # Create share link
 CHECK_INTERNET
-echo -n "${Notice}Creating share link of ${fileID}..."
-Retry=0
-while true
-do
-    CSHARE
-    if ([ "${LINK}" = "null" ] || [ "${LINK}" = "" ]); then
-        if (( $Retry == 5 )); then
-            CSHARE_FAIL
-        else
-            (( Retry = Retry + 1 ))
-            echo "Failed. Sleep 10 sec and retry. Retry ${Retry}/5..."
-            sleep 10
-        fi
-    else
-        echo " Success."
-        echo "${Notice}Your link is \"${LINK}\" with password \"${sharePW}\""
-        break
-    fi
-done
+CSHARE
 
 # Auto post to TSDM
 CHECK_INTERNET
@@ -485,7 +493,7 @@ pubDate=$(head -3 "${UploadConfig}" | tail -1)
 post=$(tail -n +5 "${UploadConfig}" | head -n -3)
 GET_FILESIZE
 CHECK_SEASON
-RCUP
+if ${DEBUG}; then
 echo "curl -m ${CurlTimeout} -sX POST \"https://www.tsdm39.net/forum.php?mod=post&action=newthread&fid=${FID}&topicsubmit=yes\" --header \"${TSDM_Cookie}\" --form \"formhash=${FORMHASH}\" --form \"typeid=${TYPE}\" --form \"subject=${pmtitle}[${filesize}]\" --form 'usesig=\"1\"' --form 'allownoticeauthor=\"1\"' --form 'addfeed=\"1\"' --form 'wysiwyg=\"0\"' --form \"message=[align=center][b]*****This post is generated by script wrote by Inanity緋雪, 
 if you find any problems please contact me ASAP, thanks.*****[/align][/b]
 [table=98%]
@@ -498,6 +506,8 @@ if you find any problems please contact me ASAP, thanks.*****[/align][/b]
 [tr][td]SHA1[/td][td]${SHA1}[/td][/tr]
 [tr][td]備註[/td][td]壓縮包皆含[color=DarkOrange]3%[/color]紀錄，若有壞檔請自行嘗試修復。[/td][/tr]
 [/table]\""
+fi
+RCUP
 response=$(curl -m ${CurlTimeout} -sX POST "https://www.tsdm39.net/forum.php?mod=post&action=newthread&fid=${FID}&topicsubmit=yes" --header "${TSDM_Cookie}" --form "formhash=${FORMHASH}" --form "typeid=${TYPE}" --form "subject=${pmtitle}[${filesize}]" --form 'usesig="1"' --form 'allownoticeauthor="1"' --form 'addfeed="1"' --form 'wysiwyg="0"' --form "message=[align=center][b]*****This post is generated by script wrote by Inanity緋雪, 
 if you find any problems please contact me ASAP, thanks.*****[/align][/b]
 [table=98%]
@@ -510,15 +520,32 @@ if you find any problems please contact me ASAP, thanks.*****[/align][/b]
 [tr][td]SHA1[/td][td]${SHA1}[/td][/tr]
 [tr][td]備註[/td][td]壓縮包皆含[color=DarkOrange]3%[/color]紀錄，若有壞檔請自行嘗試修復。[/td][/tr]
 [/table]")
-echo $response; echo
 RCDOWN
+resp=$(echo "${response}"|grep "文档已移动" > /dev/null;echo $?)
+if [ $resp -eq 0 ]; then
+    echo Posting main post on TSDM... Success.
+else
+    if ${DEBUG}; then
+        echo $response; echo
+    fi
+fi
 
+# Post reply to TSDM
 TID=$(echo ${response}|grep -o "tid=\([0-9]*\)&"|sed "s/.*tid=\([0-9]*\)&.*/\1/")
 if [[ $TID != "" ]]; then
     echo "${Notice}Posting sub-post on TSDM..."
     RCUP
-    curl -m ${CurlTimeout} -sX POST "https://www.tsdm39.net/forum.php?mod=post&action=reply&fid=${FID}&tid=${TID}&replysubmit=yes" --header "${TSDM_Cookie}" --form "formhash=${FORMHASH}" --form "typeid=${TYPE}" --form 'usesig="1"' --form "message=${post}"; echo
+    response=$(curl -m ${CurlTimeout} -sX POST "https://www.tsdm39.net/forum.php?mod=post&action=reply&fid=${FID}&tid=${TID}&replysubmit=yes" --header "${TSDM_Cookie}" --form "formhash=${FORMHASH}" --form "typeid=${TYPE}" --form 'usesig="1"' --form "message=${post}")
+    resp=$(echo "${response}"|grep "文档已移动" > /dev/null;echo $?)
     RCDOWN
+    if [ $resp -eq 0 ]; then
+        echo Posting reply on TSDM... Success.
+    else
+        echo ${Notice}"TSDM post reply failed. Exit..."
+        echo $response; echo
+        exit
+    fi
+    
 else
     echo ${Notice}"TSDM post failed. Exit..."
     curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
@@ -530,7 +557,7 @@ fi
 
 # Push notify
 CHECK_INTERNET
-echo "${Notice}Push notification to LINE..."
+echo -n "${Notice}Push notification to LINE... "
 DL_START=$(tail -1 "${UploadConfig}"|awk '{print $1}')
 DL_FINISH=$(tail -1 "${UploadConfig}"|awk '{print $2}')
 
@@ -541,21 +568,31 @@ else
 fi
 
 if ! ${SKIP}; then
-    echo calculating...
+    if ${DEBUG}; then
+        echo calculating download time...
+    fi
     DLTIME=$(${ScriptDIR}/convertime.sh $((${DL_FINISH}-${DL_START})))
 else
     DLTIME='No Record.'
 fi
 ULTIME=$(${ScriptDIR}/convertime.sh $((${UL_FINISH}-${UL_START})))
 
-curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+resp=$(curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task has been completed.
 [Task]：      ${pmtitle}
 [TSDM]：   https://www.tsdm39.net/forum.php?mod=viewthread&tid=${TID}
 [Baidu]：    ${LINK}
 [PW]：       ${sharePW}
 [DLTime]： ${DLTIME}
-[ULTime]： ${ULTIME}"; echo
+[ULTime]： ${ULTIME}";)
+
+chk=$(echo "${resp}"| grep -o "status[^,]*" | grep -o "[0-9]*")
+if [ "$chk" = "200" ]; then
+    echo "Success."
+else
+    resp=$(echo $resp| grep -o "message[^}]*" | tr -d "\"" | sed 's/message://')
+    echo "Failed. (reason: ${resp})"
+fi
 
 CLEAN_FILES
 

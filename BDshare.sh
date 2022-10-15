@@ -5,7 +5,7 @@ Notice="[BDshare.sh]: "
 filename_ext="${1##*/}"
 UploadConfig="${1}.upload"
 ConfigFile=${ScriptDIR}/aria2.conf
-CurlTimeout=15
+CurlTimeout=20
 MODE=
 SPEC=false
 SKIP=false
@@ -31,14 +31,11 @@ sharePW=TSDM
 function Cancel_Share {
     
     shareid_list=$(echo ${shareid_list}|tr " " ","|sed 's/,$//')
-    echo "$shareid_list"
     resp=$(curl -m ${CurlTimeout} -sX POST "${Cancel_API}?bdstoken=${bdstoken}&channel=chunlei&web=1&app_id=${app_id}&logid=${logid}==&clienttype=0" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" --data-urlencode "shareid_list=[${shareid_list}]")
-    
     chk=$(echo "${resp}"| grep -o "errno[^,]*" | grep -o "[0-9]*")
-    if [ $chk -eq 0 ]; then
+    if [ "$chk" = "0" ]; then
         echo ${Notice}"Success."
     else
-        echo "$resp"
         resp=$(echo "$resp"| grep -o "show_msg[^}]*" | tr -d "\"" | sed 's/show_msg://')
         echo ${Notice}"Failed to delete link(s). Reason: ${resp}"
     fi
@@ -112,6 +109,7 @@ if [[ $MODE = "c" ]]; then
                 result=$(echo "${resp}" | grep "${ARG2}" > /dev/null;echo $?)
                 if [ $result -eq 0 ]; then
                     CLEAR=true
+                    echo "${resp}"|grep -o "\{[^{}]*\}"| grep "${ARG2}"| grep -o "typicalPath[^,]*"| sed 's/.*\":\(.*\)/\1/g'
                     id=$(echo "${resp}"|grep -o "\{[^{}]*\}"| grep "${ARG2}"| grep -o "shareId[^,]*" | sed 's/.*\":\(.*\)/\1/g'|tr "\n" " ")
                     
                     echo

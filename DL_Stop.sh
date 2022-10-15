@@ -92,6 +92,7 @@ elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
 		# One File
 		if [[ $path == *"torrent" ]]; then
   			echo ${Notice}"torrent file. Skip..."
+			rm -fv $path.aria2
 			exit 0
 		fi
 		hash=$(aria2mgt "$path".aria2 | awk -F ':' '{print $4}')
