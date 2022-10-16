@@ -6,8 +6,8 @@ Notice="[RAR_TSDM.sh]: "
 filename_ext="${1##*/}"
 UploadConfig="${1}.upload"
 ConfigFile=${ScriptDIR}/aria2.conf
-CurlTimeout=15
-RetryTimeout=15
+CurlTimeout=5
+RetryTimeout=5
 MAX_RETRY=5
 ARG1="$1"
 ARG2="$2"
@@ -15,6 +15,10 @@ ARG3="$3"
 NP=false
 FIN=false
 path=
+
+if ${DEBUG}; then
+    echo ${Notice}"Debug mode enabled!"
+fi
 
 # Check target file
 if [[ ! -f "$1" ]] && [[ ! -d "$1" ]]; then
@@ -71,7 +75,7 @@ LINE_TOKEN=$(cat ${ConfigFile} | grep LINE= | sed 's/.*=//' | sed 's/[^0-9A-Za-z
 
 # For TSDM
 FID=405 #吸血貓
-FID=8  #動漫下載
+#FID=8  #動漫下載
 TSDM_Cookie=$(cat ${ConfigFile} | grep TSDM_COOKIE | sed "s/.*'\(.*\)'/\1/")
 FORMHASH=8114d641
 MUTEX=/etc/aria2/TSDM.lock
@@ -80,8 +84,8 @@ MUTEX=/etc/aria2/TSDM.lock
 
 function CHECK_SEASON {
 
+    season=$(head -4 "${UploadConfig}" | tail -1)
     if [ $FID -eq 8 ]; then
-        season=$(head -4 "${UploadConfig}" | tail -1)
         if [ $season == "1" ]; then
             TYPE=50
         elif [ $season == "4" ]; then
@@ -92,7 +96,15 @@ function CHECK_SEASON {
             TYPE=45
         fi
     elif [ $FID -eq 405 ]; then
-        TYPE=3142   # 4月
+        if [ $season == "1" ]; then
+            TYPE=3143
+        elif [ $season == "4" ]; then
+            TYPE=3142
+        elif [ $season == "7" ]; then
+            TYPE=3141
+        elif [ $season == "10" ]; then
+            TYPE=3140
+        fi
     fi
 
 }
@@ -100,14 +112,14 @@ function CHECK_SEASON {
 function RCUP {
 
     BREAK=0
-	echo "${Notice}${pmtitle} Enter Critical Section, Taking Mutex..."
+	echo -n "${Notice}${pmtitle} Enter Critical Section, Taking Mutex... "
     while [ $BREAK -eq 0 ]; do
         if [ -e ${MUTEX} ]; then
-            echo "${Notice}${pmtitle} Failed to enter CS. sleep 5 sec."
+            echo "Failed. sleep 5 sec."
             sleep 5
         else
             touch ${MUTEX}
-            echo "${Notice}${pmtitle} Succeed to enter CS."
+            echo "Success."
             BREAK=1
         fi
     done
@@ -116,17 +128,17 @@ function RCUP {
 
 function RCDOWN {
 
-    echo "${Notice}${pmtitle} Wait for 10 sec to release Mutex..."
+    echo -n "${Notice}${pmtitle} Wait for 10 sec to release Mutex... "
     sleep 10
     rm -f ${MUTEX}
-    echo "${Notice}${pmtitle} Mutex has been released."
+    echo "OK"
 
 }
 
 function UPLOAD_FAILED {
 
     echo ${Notice}"File upload failed. Exit..."
-    curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+    curl -g -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task failed. (reason: File upload failed)
 [Task]：     ${targetFile}";echo
     exit
@@ -135,34 +147,58 @@ function UPLOAD_FAILED {
 
 function GET_FILEID {
 
-    #fileID=$(curl -sX GET "${LIST_API}?app_id=${app_id}&bdstoken=${bdstoken}&channel=chunlei&clienttype=0&desc=0&dir=${uploadDIR}&logid=${logid}==&num=100&order=name&page=1&showempty=0&web=1" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" | jq '.' | fgrep -B 13 "${targetFile}" | grep "fs_id" | sed 's/[^0-9]//g')
-    if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
-        if ${MOVED}; then
-            for file in ${FILELIST}; do
-                file=$(echo $file|tr "%" " ")
-                fileID=$(BaiduPCS-Go meta "$file"| grep fs_id | awk '{print $2}' | tr "\n" ",")"$fileID"
-            done
-            fileID=$(echo $fileID|sed 's/,$//')
+    echo -n "${Notice}Getting file ID... "
+    while true
+    do
+        if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
+            if ${MOVED}; then
+                for file in ${FILELIST}; do
+                    file=$(echo $file|tr "%" " ")
+                    fileID=$(BaiduPCS-Go meta "$file"| grep fs_id | awk '{print $2}' | tr "\n" ",")"$fileID"
+                done
+                fileID=$(echo $fileID|sed 's/,$//')
+            else
+                fileID=$(BaiduPCS-Go meta "${uploadDIR}/${targetFile}/*" | grep fs_id | awk '{print $2}' | tr "\n" "," | sed "s/.$//")
+            fi
         else
-            fileID=$(BaiduPCS-Go meta "${uploadDIR}/${targetFile}/*" | grep fs_id | awk '{print $2}' | tr "\n" "," | sed "s/.$//")
-        fi
-    else
-        if ${MOVED}; then
-            fileID=$(BaiduPCS-Go meta "${DEST}/${targetFile}" | grep fs_id | awk '{print $2}')
-        else
-            fileID=$(BaiduPCS-Go meta "${uploadDIR}/${targetFile}" | grep fs_id | awk '{print $2}')
-        fi
-    fi
+            if ${MOVED}; then
+                fileID=$(BaiduPCS-Go meta "${DEST}/${targetFile}" | grep fs_id | awk '{print $2}')
+            else
+                fileID=$(BaiduPCS-Go meta "${uploadDIR}/${targetFile}" | grep fs_id | awk '{print $2}')
+            fi
+        fi 
 
-}
+        if ([ "${fileID}" = "null" ] || [ "${fileID}" = "" ]); then
+            if (( $Retry == 5 )); then
 
-function GET_FILEID_FAIL {
-
-    echo ${Notice}"Get fileID failed. Exit..."
-    curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+                echo "Failed."
+                echo -n ${Notice}"Get fileID failed. Push notification to LINE & Exit..."
+                resp=$(curl -g -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task failed. (reason: cannot get fileID)
-[Task]：     ${targetFile}";echo
-    exit
+[Task]：     ${targetFile}")
+
+                chk=$(echo "${resp}"| grep -o "status[^,]*" | grep -o "[0-9]*")
+                if [ "$chk" = "200" ]; then
+                    echo "Success."
+                else
+                    resp=$(echo $resp| grep -o "message[^}]*" | tr -d "\"" | sed 's/message://')
+                    echo "Failed. (reason: ${resp})"
+                fi
+                exit
+
+            else
+
+                (( Retry = Retry + 1 ))
+                echo "Failed. Sleep 10 sec and retry. Retry ${Retry}/5..."
+                sleep 10
+
+            fi
+        else
+            echo "Success."
+            break
+        fi
+    done
+    #fileID=$(curl -g -sX GET "${LIST_API}?app_id=${app_id}&bdstoken=${bdstoken}&channel=chunlei&clienttype=0&desc=0&dir=${uploadDIR}&logid=${logid}==&num=100&order=name&page=1&showempty=0&web=1" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" | jq '.' | fgrep -B 13 "${targetFile}" | grep "fs_id" | sed 's/[^0-9]//g')
 
 }
 
@@ -172,7 +208,7 @@ function CSHARE {
     while true
     do
         echo -n "${Notice}Creating share link of ${fileID}... "
-        resp=$(curl -m ${CurlTimeout} -sX POST "${SHARE_API}?bdstoken=${bdstoken}&channel=chunlei&web=1&app_id=${app_id}&logid=${logid}==&clienttype=0" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" --data-urlencode 'schannel=4' --data-urlencode 'channel_list=[]' --data-urlencode 'period=0' --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${fileID}]")
+        resp=$(curl -g -m ${CurlTimeout} -sX POST "${SHARE_API}?bdstoken=${bdstoken}&channel=chunlei&web=1&app_id=${app_id}&logid=${logid}==&clienttype=0" --header 'Host: pan.baidu.com' --header "${UserAgent}" --header "${BD_Cookie}" --data-urlencode 'schannel=4' --data-urlencode 'channel_list=[]' --data-urlencode 'period=0' --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${fileID}]")
         chk=$(echo "${resp}"| grep -o "errno[^,]*" | grep -o "[0-9]*")
         if [ "$chk" = "0" ]; then
 
@@ -185,15 +221,21 @@ function CSHARE {
 
             if (( $Retry == $MAX_RETRY )); then
                 echo ${Notice}"Get share link failed. Exit..."
-                curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+                resp=$(curl -g -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task failed. (reason: cannot get share link)
-[Task]：     ${filename_ext}";echo
+[Task]：     ${filename_ext}")
                 exit
             else
                 (( Retry = Retry + 1 ))
-                echo $resp
-                resp=$(echo $resp| grep -o "show_msg[^}]*" | tr -d "\"" | sed 's/show_msg://')
-                echo "Failed. Reason: ${resp}"
+                if ${DEBUG}; then
+                    echo $resp
+                fi
+                if [ "$resp" = "" ]; then
+                    echo "Failed. (reason: Empty response.)"
+                else
+                    resp=$(echo $resp| grep -o "show_msg[^}]*" | tr -d "\"" | sed 's/show_msg://')
+                    echo "Failed. (reason: ${resp})"
+                fi
                 echo "${Notice}Sleep ${RetryTimeout} sec and retry. Retry ${Retry}/${MAX_RETRY}..."
                 sleep ${RetryTimeout}
             fi
@@ -210,7 +252,7 @@ function FILENAME_PARSE {
 }
 
 function CHECK_INTERNET {
-    resp=$(curl -m ${CurlTimeout} -s google.com >& /dev/null; echo $?)
+    resp=$(curl -g -m ${CurlTimeout} -s google.com >& /dev/null; echo $?)
     if [ $resp -ne 0 ]; then
         echo "${Notice}${filename_ext} Internet connection lost...Stop task."
         exit
@@ -273,7 +315,7 @@ function GET_EPISODE {
 
     if [[ $episode == "" ]]; then
         echo ${Notice}"Cannot find any episode info. Maybe finish episode. Do NOT post."
-        curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+        curl -g -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     [Warning]: Cannot find any episode info. Maybe finish episode. Do NOT post.
 [Task]：     ${filename_ext}";echo
         FIN=true
@@ -365,11 +407,12 @@ fi
 # Upload to Baidu
 CHECK_INTERNET
 Retry=0
+RAPIDLIST=
 while true
 do
     UL_START=$(date +%s)
     if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
-        echo "${Notice}Uploading files in \"${path}\" via BaiduPCS-Go..."
+        echo -n "${Notice}Uploading files in \"${path}\" via BaiduPCS-Go..."
         BaiduPCS-Go mkdir "${uploadDIR}/${filename}"
         SAVEIFS=$IFS
 	    IFS=$(echo -en "\n\b")        
@@ -406,7 +449,6 @@ do
     fi
 done
 
-
 # Moving file to specific directory
 CHECK_INTERNET
 ptitle=$(head -1 "${UploadConfig}"|perl -pe 's/\xe2\x80\x8b\x0a//')
@@ -420,10 +462,19 @@ echo "${Notice}Moving \"${targetFile}\" to \"${DEST}\"..."
 resp=$(BaiduPCS-Go meta "${DEST}")
 check=$(echo ${resp}|grep "\[0\]" >& /dev/null;echo $?)
 if [ $check -ne 0 ]; then
-    echo "${Notice}Destination not found."
-    curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+    echo -n "${Notice}Destination not found. Push notification to LINE... "
+    resp=$(curl -g -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Moving file failed. Destination not found.
-[Task]：      ${pmtitle}"; echo
+[Task]：      ${pmtitle}")
+    
+    chk=$(echo "${resp}"| grep -o "status[^,]*" | grep -o "[0-9]*")
+    if [ "$chk" = "200" ]; then
+        echo "Success."
+    else
+        resp=$(echo $resp| grep -o "message[^}]*" | tr -d "\"" | sed 's/message://')
+        echo "Failed. (reason: ${resp})"
+    fi
+    RAPIDLIST=$(BaiduPCS-Go export --link --stdout "${SRC}"|head -n -1)
     MOVED=false
 else
     # Check exist
@@ -439,7 +490,9 @@ else
             else
                 BaiduPCS-Go mv "${uploadDIR}/${filename}/${file}" "${DEST}"
             fi
-            FILELIST=$(echo ${DEST}/${file}|tr " " "%")" ${FILELIST}"
+            FILELIST=$(echo "${DEST}/${file}"|tr " " "%")" ${FILELIST}"
+            rapid=$(BaiduPCS-Go export --link --stdout "${DEST}/${file}"|head -1)
+            RAPIDLIST=$(printf ${rapid}\n)"${RAPIDLIST}"
         done
         BaiduPCS-Go rm "${uploadDIR}/${filename}"
         IFS=$SAVEIFS
@@ -451,6 +504,7 @@ else
         else
             BaiduPCS-Go mv "${SRC}" "${DEST}"
         fi
+        RAPIDLIST=$(BaiduPCS-Go export --link --stdout "${DEST}/${targetFile}"|head -1)
     fi
     MOVED=true
 fi
@@ -462,24 +516,7 @@ fi
 
 # Get file ID
 CHECK_INTERNET
-echo "${Notice}Getting file ID..."
-Retry=0
-while true
-do
-    GET_FILEID
-    if ([ "${fileID}" = "null" ] || [ "${fileID}" = "" ]); then
-        if (( $Retry == 5 )); then
-            GET_FILEID_FAIL
-        else
-            (( Retry = Retry + 1 ))
-            echo "Failed. Sleep 10 sec and retry. Retry ${Retry}/5..."
-            sleep 10
-        fi
-    else
-        echo " Success."
-        break
-    fi
-done
+GET_FILEID
 
 # Create share link
 CHECK_INTERNET
@@ -494,36 +531,38 @@ post=$(tail -n +5 "${UploadConfig}" | head -n -3)
 GET_FILESIZE
 CHECK_SEASON
 if ${DEBUG}; then
-echo "curl -m ${CurlTimeout} -sX POST \"https://www.tsdm39.net/forum.php?mod=post&action=newthread&fid=${FID}&topicsubmit=yes\" --header \"${TSDM_Cookie}\" --form \"formhash=${FORMHASH}\" --form \"typeid=${TYPE}\" --form \"subject=${pmtitle}[${filesize}]\" --form 'usesig=\"1\"' --form 'allownoticeauthor=\"1\"' --form 'addfeed=\"1\"' --form 'wysiwyg=\"0\"' --form \"message=[align=center][b]*****This post is generated by script wrote by Inanity緋雪, 
+echo "curl -g -m ${CurlTimeout} -sX POST \"https://www.tsdm39.net/forum.php?mod=post&action=newthread&fid=${FID}&topicsubmit=yes\" --header \"${TSDM_Cookie}\" --form \"formhash=${FORMHASH}\" --form \"typeid=${TYPE}\" --form \"subject=${pmtitle}[${filesize}]\" --form 'usesig=\"1\"' --form 'allownoticeauthor=\"1\"' --form 'addfeed=\"1\"' --form 'wysiwyg=\"0\"' --form \"message=[align=center][b]*****This post is generated by script wrote by Inanity緋雪, 
 if you find any problems please contact me ASAP, thanks.*****[/align][/b]
 [table=98%]
-[tr][td]鏈接[/td][td=90%] [url=${LINK}]${LINK}[/url][/td][/tr]
+[tr][td]鏈接[/td][td=88%] [url=${LINK}]${LINK}[/url][/td][/tr]
 [tr][td]提取碼[/td][td]${sharePW}[/td][/tr]
 [tr][td]解壓碼[/td][td] [b][color=Red][size=6]${PW}[/size][/color][/b][/td][/tr]
 [tr][td]發佈源[/td][td][url=${pubURL}]${pubURL}[/url][/td][/tr]
 [tr][td]發佈時間[/td][td]${pubDate}[/td][/tr]
 [tr][td]MD5[/td][td]${MD5}[/td][/tr]
 [tr][td]SHA1[/td][td]${SHA1}[/td][/tr]
+[tr][td]秒傳(夢姬)[/td][td]${RAPIDLIST}[/td][/tr]
 [tr][td]備註[/td][td]壓縮包皆含[color=DarkOrange]3%[/color]紀錄，若有壞檔請自行嘗試修復。[/td][/tr]
 [/table]\""
 fi
 RCUP
-response=$(curl -m ${CurlTimeout} -sX POST "https://www.tsdm39.net/forum.php?mod=post&action=newthread&fid=${FID}&topicsubmit=yes" --header "${TSDM_Cookie}" --form "formhash=${FORMHASH}" --form "typeid=${TYPE}" --form "subject=${pmtitle}[${filesize}]" --form 'usesig="1"' --form 'allownoticeauthor="1"' --form 'addfeed="1"' --form 'wysiwyg="0"' --form "message=[align=center][b]*****This post is generated by script wrote by Inanity緋雪, 
+response=$(curl -g -m ${CurlTimeout} -sX POST "https://www.tsdm39.net/forum.php?mod=post&action=newthread&fid=${FID}&topicsubmit=yes" --header "${TSDM_Cookie}" --form "formhash=${FORMHASH}" --form "typeid=${TYPE}" --form "subject=${pmtitle}[${filesize}]" --form 'usesig="1"' --form 'allownoticeauthor="1"' --form 'addfeed="1"' --form 'wysiwyg="0"' --form "message=[align=center][b]*****This post is generated by script wrote by Inanity緋雪, 
 if you find any problems please contact me ASAP, thanks.*****[/align][/b]
 [table=98%]
-[tr][td]鏈接[/td][td=90%] [url=${LINK}]${LINK}[/url][/td][/tr]
+[tr][td]鏈接[/td][td=88%] [url=${LINK}]${LINK}[/url][/td][/tr]
 [tr][td]提取碼[/td][td]${sharePW}[/td][/tr]
 [tr][td]解壓碼[/td][td] [b][color=Red][size=6]${PW}[/size][/color][/b][/td][/tr]
 [tr][td]發佈源[/td][td][url=${pubURL}]${pubURL}[/url][/td][/tr]
 [tr][td]發佈時間[/td][td]${pubDate}[/td][/tr]
 [tr][td]MD5[/td][td]${MD5}[/td][/tr]
 [tr][td]SHA1[/td][td]${SHA1}[/td][/tr]
+[tr][td]秒傳(夢姬)[/td][td]${RAPIDLIST}[/td][/tr]
 [tr][td]備註[/td][td]壓縮包皆含[color=DarkOrange]3%[/color]紀錄，若有壞檔請自行嘗試修復。[/td][/tr]
 [/table]")
 RCDOWN
 resp=$(echo "${response}"|grep "文档已移动" > /dev/null;echo $?)
 if [ $resp -eq 0 ]; then
-    echo Posting main post on TSDM... Success.
+    echo ${Notice}Posting main post on TSDM... Success.
 else
     if ${DEBUG}; then
         echo $response; echo
@@ -533,13 +572,13 @@ fi
 # Post reply to TSDM
 TID=$(echo ${response}|grep -o "tid=\([0-9]*\)&"|sed "s/.*tid=\([0-9]*\)&.*/\1/")
 if [[ $TID != "" ]]; then
-    echo "${Notice}Posting sub-post on TSDM..."
+    echo "${Notice}Posting reply on TSDM..."
     RCUP
-    response=$(curl -m ${CurlTimeout} -sX POST "https://www.tsdm39.net/forum.php?mod=post&action=reply&fid=${FID}&tid=${TID}&replysubmit=yes" --header "${TSDM_Cookie}" --form "formhash=${FORMHASH}" --form "typeid=${TYPE}" --form 'usesig="1"' --form "message=${post}")
+    response=$(curl -g -m ${CurlTimeout} -sX POST "https://www.tsdm39.net/forum.php?mod=post&action=reply&fid=${FID}&tid=${TID}&replysubmit=yes" --header "${TSDM_Cookie}" --form "formhash=${FORMHASH}" --form "typeid=${TYPE}" --form 'usesig="1"' --form "message=${post}")
     resp=$(echo "${response}"|grep "文档已移动" > /dev/null;echo $?)
     RCDOWN
     if [ $resp -eq 0 ]; then
-        echo Posting reply on TSDM... Success.
+        echo ${Notice}Posting reply on TSDM... Success.
     else
         echo ${Notice}"TSDM post reply failed. Exit..."
         echo $response; echo
@@ -547,15 +586,23 @@ if [[ $TID != "" ]]; then
     fi
     
 else
-    echo ${Notice}"TSDM post failed. Exit..."
-    curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+    echo -n ${Notice}"TSDM post failed. Push notification to LINE & Exit... "
+    resp=$(curl -g -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task failed. (reason: TSDM post failed)
-[Task]：      ${NEW}"
+[Task]：      ${NEW}")
+    
+    chk=$(echo "${resp}"| grep -o "status[^,]*" | grep -o "[0-9]*")
+    if [ "$chk" = "200" ]; then
+        echo "Success."
+    else
+        resp=$(echo $resp| grep -o "message[^}]*" | tr -d "\"" | sed 's/message://')
+        echo "Failed. (reason: ${resp})"
+    fi
     exit
 fi
 
 
-# Push notify
+# Push notification
 CHECK_INTERNET
 echo -n "${Notice}Push notification to LINE... "
 DL_START=$(tail -1 "${UploadConfig}"|awk '{print $1}')
@@ -577,7 +624,7 @@ else
 fi
 ULTIME=$(${ScriptDIR}/convertime.sh $((${UL_FINISH}-${UL_START})))
 
-resp=$(curl -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+resp=$(curl -g -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task has been completed.
 [Task]：      ${pmtitle}
 [TSDM]：   https://www.tsdm39.net/forum.php?mod=viewthread&tid=${TID}
@@ -602,6 +649,6 @@ CLEAN_FILES
 #group=$(echo $group | sed 's/&/&amp;/g')
 #TID=1103066
 #PID=66072107
-#response=$(curl -sX GET "https://www.tsdm39.net/forum.php?mod=post&action=edit&fid=${FID}&tid=${TID}&pid=${PID}&page=1" --header "${TSDM_Cookie}")
+#response=$(curl -g -sX GET "https://www.tsdm39.net/forum.php?mod=post&action=edit&fid=${FID}&tid=${TID}&pid=${PID}&page=1" --header "${TSDM_Cookie}")
 #echo $response | grep -o \<textarea.*\</textarea\> | tr '\n' '!' | sed 's/\r/\n/g' | sed 's/[\>\<]/\n/g' | sed '1,2d' | head -n -2 | tr '\n' '\r' | tr '!' '\n' > res
 ##| grep -o \<textarea.*\</textarea\> | tr '\r' '\n' | sed 's/[\>\<]/\n/g' | sed '1,2d' | head -n -2 > res

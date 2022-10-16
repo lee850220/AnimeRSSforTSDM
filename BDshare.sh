@@ -5,7 +5,7 @@ Notice="[BDshare.sh]: "
 filename_ext="${1##*/}"
 UploadConfig="${1}.upload"
 ConfigFile=${ScriptDIR}/aria2.conf
-CurlTimeout=20
+CurlTimeout=5
 MODE=
 SPEC=false
 SKIP=false
@@ -81,7 +81,7 @@ if ! $SKIP; then
     echo ${Notice}"Getting total share links..."
     while true
     do
-        resp=$(curl -s -m ${CurlTimeout} -X POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${page}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0"|grep -o "list[^,]*," | grep {} > /dev/null;echo $?)
+        resp=$(curl -s -g -m${CurlTimeout} -X POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${page}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0"|grep -o "list[^,]*," | grep {} > /dev/null;echo $?)
         if [ $resp -eq 0 ]; then
             break
         fi
@@ -104,7 +104,7 @@ if [[ $MODE = "c" ]]; then
             for ((i=$page; i>=1; i--))
             do
                 echo ${Notice}"Checking page ${i} of ${page}..."
-                resp=$(curl -s -m ${CurlTimeout} -X POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${i}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0"|jq -rc)
+                resp=$(curl -s -g -m${CurlTimeout} -X POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${i}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0"|jq -rc)
                 
                 result=$(echo "${resp}" | grep "${ARG2}" > /dev/null;echo $?)
                 if [ $result -eq 0 ]; then
@@ -140,7 +140,7 @@ if [[ $MODE = "c" ]]; then
         for ((i=$page; i>=1; i--))
         do
             echo ${Notice}"Cleaning page ${i}..."
-            resp=$(curl -s -m ${CurlTimeout} -X POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${i}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0"| grep -o "\{[^{}]*\}" | grep -e "分享已过期" -e "分享的文件已被删除" | grep -o "shareId[^,]*," | tr -cd "0-9\n" | tr "\n" " ")
+            resp=$(curl -s -g -m${CurlTimeout} -X POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${i}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0"| grep -o "\{[^{}]*\}" | grep -e "分享已过期" -e "分享的文件已被删除" | grep -o "shareId[^,]*," | tr -cd "0-9\n" | tr "\n" " ")
             if [[ "$resp" == "" ]]; then
                 echo ${Notice}"No need to clean."
             else
@@ -159,7 +159,7 @@ elif [[ $MODE = "l" ]]; then
         echo "  shareId                         shareLink                             PATH"
         for ((i=$page; i>=1; i--))
         do
-            curl -s -m ${CurlTimeout} -X POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${i}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0"|jq -cr|grep -o "\{[^{}]*\}" | grep -o -e "typicalPath[^,]*" -e "shortlink[^,]*" -e "shareId[^,]*" | sed 's/.*\":\(.*\)/\1/g' | sed 's/\"\([^"]*\)\"/\1/g' | sed "N;N;s/\n/ \t/g" | grep "${ARG2}"
+            curl -s -g -m${CurlTimeout} -X POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${i}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0"|jq -cr|grep -o "\{[^{}]*\}" | grep -o -e "typicalPath[^,]*" -e "shortlink[^,]*" -e "shareId[^,]*" | sed 's/.*\":\(.*\)/\1/g' | sed 's/\"\([^"]*\)\"/\1/g' | sed "N;N;s/\n/ \t/g" | grep "${ARG2}"
         done
     else
         # list all share links
@@ -167,13 +167,13 @@ elif [[ $MODE = "l" ]]; then
         echo "  shareId                         shareLink                             PATH"
         for ((i=$page; i>=1; i--))
         do
-            curl -s -m ${CurlTimeout} -X POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${i}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0"|jq -cr| grep -o "\{[^{}]*\}" | grep -o -e "typicalPath[^,]*" -e "shortlink[^,]*" -e "shareId[^,]*" | sed 's/.*\":\(.*\)/\1/g' | sed 's/\"\([^"]*\)\"/\1/g' | sed "N;N;s/\n/ \t/g"
+            curl -s -g -m${CurlTimeout} -X POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${i}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0"|jq -cr| grep -o "\{[^{}]*\}" | grep -o -e "typicalPath[^,]*" -e "shortlink[^,]*" -e "shareId[^,]*" | sed 's/.*\":\(.*\)/\1/g' | sed 's/\"\([^"]*\)\"/\1/g' | sed "N;N;s/\n/ \t/g"
         done
     fi
 
 elif [[ $MODE = "s" ]]; then
 
-    resp=$(curl -s -m ${CurlTimeout} -X POST "https://pan.baidu.com/share/set?channel=chunlei&web=1&app_id=${app_id}&logid=${logid}&clienttype=0" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0" --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${ARG2}]")
+    resp=$(curl -s -g -m${CurlTimeout} -X POST "https://pan.baidu.com/share/set?channel=chunlei&web=1&app_id=${app_id}&logid=${logid}&clienttype=0" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0" --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${ARG2}]")
     errno=$(echo "$resp"|grep -o "errno[^,]*" | sed 's/.*\":\(.*\)/\1/g' | sed 's/\"\([^"]*\)\"/\1/g')
     if [ $errno -eq 0 ]; then
         echo

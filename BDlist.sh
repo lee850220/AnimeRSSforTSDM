@@ -1,11 +1,13 @@
 #!/bin/bash
+DEBUG=false
+CLEAR_LINE="\r\033[K"
 PATH="/usr/local/bin:$PATH"
 ScriptDIR=/etc/aria2
 Notice="[BDlist.sh]: "
 filename_ext="${1##*/}"
 UploadConfig="${1}.upload"
 ConfigFile=${ScriptDIR}/aria2.conf
-CurlTimeout=15
+CurlTimeout=5
 MODE=
 SPEC=false
 ARG1="$1"
@@ -27,10 +29,44 @@ sharePW=TSDM
 
 ####################################################### MAIN ############################################################
 echo
-echo "     fs_id                      PATH"
-if [[ $ARG1 = "" ]]; then
-    curl -s -m 180 -X GET "https://pan.baidu.com/api/list?app_id=250528&bdstoken=810326db0487dc2ded7efdffb61019cc&channel=chunlei&clienttype=0&desc=0&dir=/&logid=${logid}&num=100&order=name&page=1&showempty=0&web=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" --data-raw ""|jq -cr|grep -o "\{[^{}]*\}" | grep -o -e "fs_id[^,]*" -e "path[^,]*" | sed 's/.*\":\(.*\)/\1/g' | sed 's/\"\([^"]*\)\"/\1/g' | sed "N;s/\n/ \t/g"
-else
-    curl -s -m 180 -X GET "https://pan.baidu.com/api/list?app_id=250528&bdstoken=810326db0487dc2ded7efdffb61019cc&channel=chunlei&clienttype=0&desc=0&dir=${ARG1}&logid=${logid}&num=100&order=name&page=1&showempty=0&web=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" --data-raw ""|jq -cr|grep -o "\{[^{}]*\}" | grep -o -e "fs_id[^,]*" -e "path[^,]*" | sed 's/.*\":\(.*\)/\1/g' | sed 's/\"\([^"]*\)\"/\1/g' | sed "N;s/\n/  \t\t/g"
-fi
+RETRY=0
+while true
+do
+
+    if [[ $ARG1 = "" ]]; then
+        resp=$(curl -s -m $CurlTimeout -g -X GET "https://pan.baidu.com/api/list?app_id=250528&bdstoken=810326db0487dc2ded7efdffb61019cc&channel=chunlei&clienttype=0&desc=0&dir=/&logid=${logid}&num=100&order=name&page=1&showempty=0&web=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" --data-raw "")
+    else
+        resp=$(curl -s -m $CurlTimeout -g -X GET "https://pan.baidu.com/api/list?app_id=250528&bdstoken=810326db0487dc2ded7efdffb61019cc&channel=chunlei&clienttype=0&desc=0&dir=${ARG1}&logid=${logid}&num=100&order=name&page=1&showempty=0&web=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" --data-raw "")
+    fi
+
+    if [ ! "$resp" = "" ]; then
+        SAVEIFS=$IFS
+	    IFS=$(echo -en "\n\b")
+        echo -e ${CLEAR_LINE}"     fs_id                      PATH"
+        resp=$(echo $resp|jq -cr|grep -o "\{[^{}]*\}" | grep -o -e "fs_id[^,]*" -e "path[^,]*" | sed 's/.*\":\(.*\)/\1/g'| sed 's/\"\([^"]*\)\"/\1/g' )
+        #| sed "N;s/\n/ \t/g"
+        even=false
+        for line in ${resp};
+        do
+            if ! (( ${even})); then
+                echo -n $line
+                cnt=$(echo $line | wc -m)
+            else                
+                #echo;echo "$cnt"
+                if [ $cnt -lt 16 ]; then
+                    echo -e " \\t\\t$line"
+                else
+                    echo -e " \\t$line"
+                fi
+            fi
+            even=$(( 1 - even ))
+        done
+        break
+        IFS=$SAVEIFS
+    else
+        echo -ne "${CLEAR_LINE}Retrying...$Retry"
+    fi
+    (( Retry = Retry + 1 ))
+    
+done
 echo
