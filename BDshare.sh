@@ -1,4 +1,5 @@
 #!/bin/bash
+source /root/.bashrc
 DEBUG=false
 RESPONSE_FILE=bdshare_resp
 TMP_FILE=bsdhare_tmp
@@ -92,7 +93,7 @@ if ! $SKIP; then
         echo -ne ${CLEAR_LINE}${Notice}"Getting page $page... "
         while true
         do
-            curl ${CurlFlag} POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${page}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0" > ${TMP_FILE}
+            curl ${CurlFlag} POST "https://pan.baidu.com/share/record?channel=chunlei&clienttype=0&app_id=${app_id}&dp-logid=${logid}&num=100&page=${page}&web=1&order=ctime&desc=1" -H "Host: pan.baidu.com" -H "${UserAgent}" -H "${BD_Cookie}" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0" | jq -rc > ${TMP_FILE}
             if ${DEBUG}; then
                 cat ${TMP_FILE}
             fi
@@ -105,7 +106,7 @@ if ! $SKIP; then
         done
         chk=$(cat ${TMP_FILE}| grep -o "count[^,]*" | grep -o "[0-9]*")
         if [ "$chk" = "0" ]; then
-            cat ${TMP_FILE}_resp | jq -rc > ${RESPONSE_FILE}
+            cat ${TMP_FILE}_resp > ${RESPONSE_FILE}
             break
         else
             if $first; then

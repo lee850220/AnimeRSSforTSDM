@@ -13,7 +13,7 @@ scriptpath='/etc/aria2'
 echo $1
 echo $2
 echo $3
-
+source /root/.bashrc
 #=====================================================
 function CLEAN_FILES {
 	echo [DL_Stop.sh]" "searching match torrent...
@@ -40,7 +40,7 @@ function NORMAL {
 	echo [DL_Stop.sh]" "[NORMAL Mode]
 	if [ "${path}" == *"torrent" ];	then
 		echo [DL_Stop.sh]" "moving file...
-		mv -v "$path" "$DL"
+		mv -v "$path" "$DL${filename}"
 	else
 		echo [DL_Stop.sh]" "This is torrent file, DO NOT move.
 	fi
@@ -52,10 +52,10 @@ function BT_SINGLE {
 	echo [DL_Stop.sh]" "[Single BT Mode]
 	echo [DL_Stop.sh]" "moving file...
 	if [[ -f "$path.upload" ]]; then
-		mv -v "$path" "$TSDM"
+		mv -v "$path" "$TSDM${filename}"
 		if [ "$?" != "0" ]; then rm -rfv "$path"; fi
 	else
-		mv -v "$path" "$DL"
+		mv -v "$path" "$DL${filename}"
 	fi
 	CLEAN_FILES
 	exit 0
@@ -65,10 +65,10 @@ function BT_FOLDER {
 	echo [DL_Stop.sh]" "[Multi BT Mode]
 	echo [DL_Stop.sh]" "moving file...
 	if [[ -f "$path.upload" ]]; then
-		mv -v "$path" "$TSDM"
+		mv -v "$path" "$TSDM${filename}"
 		if [ "$?" != "0" ]; then rm -rfv "$path"; fi
 	else
-		mv -v "$path" "$DL"
+		mv -v "$path" "$DL${filename}"
 	fi
 	CLEAN_FILES
 	exit 0
@@ -92,7 +92,7 @@ elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
 		# One File
 		if [[ $path == *"torrent" ]]; then
   			echo ${Notice}"torrent file. Skip..."
-			rm -fv $path.aria2
+			rm -fv "$path.aria2"
 			exit 0
 		fi
 		hash=$(aria2mgt "$path".aria2 | awk -F ':' '{print $4}')

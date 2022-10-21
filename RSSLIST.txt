@@ -1,6 +1,6 @@
-https://bangumi.moe/rss/search/%E6%A5%B5%E5%BD%A9%20%E5%BD%B1%E4%B9%8B%20%E7%AE%80%E7%B9%81 【極彩字幕组】[我想成为影之强者！][1080P][HEVC_10bit_AAC][简繁内封] 1
+https://bangumi.moe/rss/search/%E6%A5%B5%E5%BD%A9%20Kage%20%E7%AE%80%E7%B9%81 【極彩字幕组】[我想成为影之强者！][1080P][HEVC_10bit_AAC][简繁内封] 1
 https://bangumi.moe/rss/search/%E6%A5%B5%E5%BD%A9%20%E5%BD%B1%E4%B9%8B%20%E7%AE%80%E6%97%A5 【極彩字幕组】[我想成为影之强者！][1080P][AVC_8bit_AAC][简体] 1
-https://bangumi.moe/rss/search/%E6%A5%B5%E5%BD%A9%20%E5%BD%B1%E4%B9%8B%20%E7%B9%81%E6%97%A5 【極彩字幕组】[我想成為影之強者！][1080P][AVC_8bit_AAC][繁體] 1
+https://bangumi.moe/rss/search/%E6%A5%B5%E5%BD%A9%20Kage%20%E7%B9%81%E6%97%A5%E5%86%85%E5%B5%8C 【極彩字幕组】[我想成為影之強者！][1080P][AVC_8bit_AAC][繁體] 1
 https://bangumi.moe/rss/search/%E6%A1%9C%E9%83%BD%20%E5%BD%B1%E4%B9%8B%20Kage%20%E7%AE%80%E7%B9%81 【桜都字幕组】[我想成为影之强者！][1080P@60fps][HEVC_10bit_AAC][简繁内封] 1
 https://bangumi.moe/rss/search/%E6%A1%9C%E9%83%BD%20%E5%BD%B1%E4%B9%8B%20Kage%20%E7%AE%80%E4%BD%93 【桜都字幕组】[我想成为影之强者！][1080P][AVC_8bit_AAC][简体] 1
 https://bangumi.moe/rss/search/%E6%A1%9C%E9%83%BD%20%E5%BD%B1%E4%B9%8B%20Kage%20%E7%B9%81%E4%BD%93 【桜都字幕组】[我想成為影之強者！][1080P][AVC_8bit_AAC][繁體] 1
@@ -23,14 +23,12 @@ https://bangumi.moe/rss/search/%E6%98%9F%E7%A9%BA%20Noumin%20%E7%AE%80 【星空
 https://bangumi.moe/rss/search/%E6%98%9F%E7%A9%BA%20Noumin%20%E7%B9%81 【星空字幕组】[點滿農民相關技能後，不知為何就變強了。][1080P][AVC_8bit_AAC][繁體] 4
 https://bangumi.moe/rss/search/%E5%96%B5%20%E8%87%B3%E4%B8%8A%201080%20%E7%AE%80%E6%97%A5 【喵萌奶茶屋】[欢迎来到实力至上主义的教室S2][1080P][AVC_8bit_AAC][简体]​ 5
 https://bangumi.moe/rss/search/%E5%96%B5%20%E8%87%B3%E4%B8%8A%20%E7%B9%81%E6%97%A5%201080 【喵萌奶茶屋】[歡迎來到實力至上主義的教室S2][1080P][AVC_8bit_AAC][繁體]​ 5
-https://bangumi.moe/rss/search/%E7%88%B1%E6%81%8B%20Youkos 【爱恋&漫猫字幕组】[欢迎来到实力至上主义的教室S2][1080P][AVC_8bit_AAC][简体]​ 5
-https://bangumi.moe/rss/search/%E6%84%9B%E6%88%80%20Youkos 【愛戀&漫貓字幕組】[歡迎來到實力至上主義的教室S2][1080P][AVC_8bit_AAC][繁體]​ 5
 https://bangumi.moe/rss/search/%E6%9E%81%E5%BD%B1%20%E9%87%91%E8%A3%85%201080 【极影字幕社】[金装的薇尔梅][1080P][AVC_8bit_AAC][简体]​ 6
 https://bangumi.moe/rss/search/%E6%A5%B5%E5%BD%B1%20%E9%87%91%E8%A3%9D%201080 【極影字幕社】[金裝的薇爾梅][1080P][AVC_8bit_AAC][繁體]​ 6
 https://bangumi.moe/rss/search/%E6%98%9F%E7%A9%BA%20FLOPS%20%E7%AE%80 【星空字幕组】[恋爱FLOPS][1080P][AVC_8bit_AAC][简体] 7
 https://bangumi.moe/rss/search/%E6%98%9F%E7%A9%BA%20FLOPS%20%E7%B9%81 【星空字幕组】[戀愛FLOPS][1080P][AVC_8bit_AAC][繁體] 7
+https://bangumi.moe/rss/search/%E5%96%B5%E8%90%8C%20FLOPS%201080%20%E5%8F%8C%E8%AF%AD 【喵萌奶茶屋】[恋爱FLOPS][1080P][AVC_8bit_AAC][简体] 7
+https://bangumi.moe/rss/search/%E5%96%B5%E8%90%8C%20FLOPS%201080%20%E9%9B%99%E8%AA%9E 【喵萌奶茶屋】[戀愛FLOPS][1080P][AVC_8bit_AAC][繁體] 7
 https://bangumi.moe/rss/search/%E5%8D%83%20%E6%8B%96%E6%B2%B9%20%E7%AE%80%E4%BD%93 【千夏字幕组】[继母的拖油瓶是我的前女友][1080P][AVC_8bit_AAC][简体]​ 8
 https://bangumi.moe/rss/search/%E5%8D%83%E5%A4%8F%20%E6%8B%96%E6%B2%B9%20%E7%B9%81%E9%AB%94 【千夏字幕组】[繼母的拖油瓶是我的前女友][1080P][AVC_8bit_AAC][繁體]​ 8
-https://bangumi.moe/rss/search/%E7%88%B1%E6%81%8B%20%E8%BF%B7%E5%AE%AB%E9%87%8C 【爱恋&漫猫字幕组】[异世界迷宫里的后宫生活][1080P][AVC_8bit_AAC][简体]​ 9
-https://bangumi.moe/rss/search/%E6%84%9B%E6%88%80%20%E8%BF%B7%E5%AE%AE%E8%A3%A1 【愛戀&漫貓字幕組】[異世界迷宮裡的後宮生活][1080P][AVC_8bit_AAC][繁體]​ 9
 https://bangumi.moe/rss/search/%E6%9E%81%E5%BD%A9%20%E4%B8%96%E7%95%8C%20%E7%B9%81%E9%AB%94 【极彩字幕组】[異世界迷宮裡的後宮生活][1080P][AVC_8bit_AAC][繁體]​ 9

@@ -12,6 +12,7 @@ downloadpath='/var/www/html/nextcloud/data/lee850220/files/Aria2'
 
 #============================================================
 Notice="[DL_BT.sh]: "
+source /root/.bashrc
 
 function NORMAL {
 	echo ${Notice}"task="${filename}" NORMAL mode, DO NOTHING."
@@ -66,7 +67,7 @@ then
 			echo ${Notice}"BT mode"
 			if [ -e "$path.upload" ]; then
 				if [ -e "${path}.NP" ]; then
-					echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}" "NP"
+					echo ${Notice}"$path run with RAR_TSDM.sh." && /etc/aria2/RAR_TSDM.sh "${path}" "NP"
 				else
 					echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}"
 				fi
@@ -82,7 +83,7 @@ then
 	# Folder (need fix)
 	if [ -e "$path.upload" ]; then
 		if [ -e "${path}.NP" ]; then
-			echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}" "F" "NP"
+			echo ${Notice}"$path run with RAR_TSDM.sh." && /etc/aria2/RAR_TSDM.sh "${path}" "F" "NP"
 		else
 			echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}" "F"
 		fi

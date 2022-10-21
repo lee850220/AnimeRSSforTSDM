@@ -8,7 +8,7 @@
 # Aria2下載目錄
 downloadpath='/var/www/html/nextcloud/data/lee850220/files/Aria2'
 scriptpath='/etc/aria2'
-
+source /root/.bashrc
 #=====================================================
 function CLEAN_FILES {
 	echo [delete.sh]" "searching match torrent...

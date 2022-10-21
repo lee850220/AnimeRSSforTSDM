@@ -1,20 +1,28 @@
 #!/bin/bash
-DEBUG=false
+source /root/.bashrc
+CLEAR_LINE="\r\033[K"
 PATH="/usr/local/bin:$PATH"
 ScriptDIR=/etc/aria2
 Notice="[RAR_TSDM.sh]: "
 filename_ext="${1##*/}"
 UploadConfig="${1}.upload"
 ConfigFile=${ScriptDIR}/aria2.conf
+
 CurlTimeout=5
 RetryTimeout=5
-MAX_RETRY=5
+MAX_RETRY=10
 ARG1="$1"
 ARG2="$2"
 ARG3="$3"
+path=
+RAPIDLIST=
+
+DEBUG=false
 NP=false
 FIN=false
-path=
+NOUP=false
+NO_CLEAN=false
+
 
 if ${DEBUG}; then
     echo ${Notice}"Debug mode enabled!"
@@ -38,6 +46,10 @@ if [ "$path" = "$filename_ext" ]; then
     path=$(pwd)/
 else
     path="${path}/"
+fi
+
+if [ "${ARG2}" == "NOUP" ]; then
+    NOUP=true
 fi
 
 if ([ "${ARG2}" == "NP" ] || [ "${ARG3}" == "NP" ] || [ "${ARG2}" == "FIN" ]); then
@@ -75,7 +87,7 @@ LINE_TOKEN=$(cat ${ConfigFile} | grep LINE= | sed 's/.*=//' | sed 's/[^0-9A-Za-z
 
 # For TSDM
 FID=405 #吸血貓
-#FID=8  #動漫下載
+FID=8  #動漫下載
 TSDM_Cookie=$(cat ${ConfigFile} | grep TSDM_COOKIE | sed "s/.*'\(.*\)'/\1/")
 FORMHASH=8114d641
 MUTEX=/etc/aria2/TSDM.lock
@@ -335,16 +347,21 @@ function GET_FILESIZE {
 }
 
 function CLEAN_FILES {
-    if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
-        rm -rfv "${path}*.rar"
-    else
-        rm -rfv "${NEW}"
+
+    if ! ${NO_CLEAN}; then
+
+        if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
+            rm -rfv "${path}*.rar"
+        else    
+            rm -rfv "${NEW}"
+        fi
+        rm -fv "${NEW}.NP"
+
     fi
-    rm -fv "${NEW}.NP"
+
 }
 ####################################################### MAIN ############################################################
 
-NOUP=false
 if [[ ! -f ${UploadConfig} ]]; then 
     NOUP=true
 fi
@@ -363,6 +380,11 @@ if ([ "${ARG2}" = "F" ] || ${FIN}); then
         rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}" "${path}"
         MD5=$(md5sum "${NEW}" | awk '{print $1}')
         SHA1=$(sha1sum "${NEW}" | awk '{print $1}')
+        tail -c256 "${NEW}" > "${path}tmp"
+        MD5tmp=$(md5sum "${path}tmp" | awk '{print $1}')
+        FILESIZE=$(stat -c %s "${NEW}")
+        rm -f "${path}tmp"
+        RAPIDLIST="${MD5}#${MD5tmp}#${FILESIZE}#${NEW##*/}"
     else
         echo ${Notice}"[Folder Mode] Multiple!!"
         for file in $(ls "${path}"*.m[kp][4v]|sed 's/.*\///'); do
@@ -370,6 +392,13 @@ if ([ "${ARG2}" = "F" ] || ${FIN}); then
             FILENAME_PARSE
             echo "rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}.rar" "${path}${file}""
             rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}.rar" "${path}${file}"
+            MD5=$(md5sum "${NEW}.rar" | awk '{print $1}')
+            tail -c256 "${NEW}.rar" > "${path}tmp"
+            MD5tmp=$(md5sum "${path}tmp" | awk '{print $1}')
+            FILESIZE=$(stat -c %s "${NEW}.rar")
+            rm -f "${path}tmp"
+            rapid="${MD5}#${MD5tmp}#${FILESIZE}#${NEW##*/}.rar"
+            RAPIDLIST=$(printf ${rapid}\\n)"${RAPIDLIST}"
         done
         MD5="參見鏈接內的checksum.txt (非完結合集不提供)"
         SHA1="參見鏈接內的checksum.txt (非完結合集不提供)"
@@ -382,6 +411,11 @@ else
     rar a -ep -hp"${PW}" -rr3 -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}" "${path}${filename_ext}"
     MD5=$(md5sum "${NEW}" | awk '{print $1}')
     SHA1=$(sha1sum "${NEW}" | awk '{print $1}')
+    tail -c256 "${NEW}" > "${path}tmp"
+    MD5tmp=$(md5sum "${path}tmp" | awk '{print $1}')
+    FILESIZE=$(stat -c %s "${NEW}")
+    rm -f "${path}tmp"
+    RAPIDLIST="${MD5}#${MD5tmp}#${FILESIZE}#${NEW##*/}"
 fi
 
 if ${FIN}; then
@@ -397,9 +431,11 @@ if ${FIN}; then
         echo ${MD5} ${SHA1} "${file##*/}" >> "${path}checksum.txt"
     done
     IFS=$SAVEIFS
+    echo $RAPIDLIST > "${path}rapidlist.txt"
 fi
 
 if ${NOUP}; then
+    echo $RAPIDLIST
     echo "${Notice}\"${filename_ext}\" no need to upload. Exit..."
     exit
 fi
@@ -407,7 +443,6 @@ fi
 # Upload to Baidu
 CHECK_INTERNET
 Retry=0
-RAPIDLIST=
 while true
 do
     UL_START=$(date +%s)
@@ -459,6 +494,7 @@ DEST="/TSDM/${EPISODE_NAME}/${ptitle}"
 echo "${Notice}Moving \"${targetFile}\" to \"${DEST}\"..."
 
 # Check destination (share folder)
+Retry=0
 resp=$(BaiduPCS-Go meta "${DEST}")
 check=$(echo ${resp}|grep "\[0\]" >& /dev/null;echo $?)
 if [ $check -ne 0 ]; then
@@ -474,7 +510,29 @@ if [ $check -ne 0 ]; then
         resp=$(echo $resp| grep -o "message[^}]*" | tr -d "\"" | sed 's/message://')
         echo "Failed. (reason: ${resp})"
     fi
-    RAPIDLIST=$(BaiduPCS-Go export --link --stdout "${SRC}"|head -n -1)
+
+#    while true
+#    do
+#        resp=$(BaiduPCS-Go export --link --stdout "${SRC}"|head -n -1)
+#        chk=$(echo "$resp"|grep "导出失败" >& /dev/null;echo $?)
+#        if [ $chk -eq 0 ]; then
+#            if (( $Retry == $MAX_RETRY )); then
+#                NO_CLEAN=true
+#                RAPIDLIST="Failed to get rapid link."
+#                curl -g -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+#"Message=     Failed to get rapid link.
+#[Task]：      ${SRC}"
+#                break
+#            fi
+#            echo -ne ${CLEAR_LINE}${Notice}"Failed to get rapid link. Sleep 60 sec and retry...$Retry/$MAX_RETRY"
+#            (( Retry = Retry + 1 ))
+#            sleep 60
+#        else
+#            echo -e ${CLEAR_LINE}${Notice}"Success to get rapid link."
+#            RAPIDLIST="$resp"
+#            break
+#        fi
+#    done    
     MOVED=false
 else
     # Check exist
@@ -491,8 +549,29 @@ else
                 BaiduPCS-Go mv "${uploadDIR}/${filename}/${file}" "${DEST}"
             fi
             FILELIST=$(echo "${DEST}/${file}"|tr " " "%")" ${FILELIST}"
-            rapid=$(BaiduPCS-Go export --link --stdout "${DEST}/${file}"|head -1)
-            RAPIDLIST=$(printf ${rapid}\n)"${RAPIDLIST}"
+            
+#            while true
+#            do
+#                rapid=$(BaiduPCS-Go export --link --stdout "${DEST}/${file}"|head -1)
+#                chk=$(echo "$rapid"|grep "导出失败" >& /dev/null;echo $?)
+#                if [ $chk -eq 0 ]; then
+#                    if (( $Retry == $MAX_RETRY )); then
+#                        NO_CLEAN=true
+#                        RAPIDLIST=$(printf ${file} Failed to get rapid link.\n)"${RAPIDLIST}"
+#                        curl -g -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+#"Message=     Failed to get rapid link.
+#[Task]：      ${DEST}/${file}"
+#                        break
+#                    fi
+#                    echo -ne ${CLEAR_LINE}${Notice}"Failed to get rapid link. Sleep 60 sec and retry...$Retry/$MAX_RETRY"
+#                    (( Retry = Retry + 1 ))
+#                    sleep 60
+#                else
+#                    echo -e ${CLEAR_LINE}${Notice}"Success to get rapid link."
+#                    RAPIDLIST=$(printf ${rapid}\n)"${RAPIDLIST}"
+#                    break
+#                fi
+#            done
         done
         BaiduPCS-Go rm "${uploadDIR}/${filename}"
         IFS=$SAVEIFS
@@ -504,7 +583,29 @@ else
         else
             BaiduPCS-Go mv "${SRC}" "${DEST}"
         fi
-        RAPIDLIST=$(BaiduPCS-Go export --link --stdout "${DEST}/${targetFile}"|head -1)
+
+#        while true
+#        do
+#            resp=$(BaiduPCS-Go export --link --stdout "${DEST}/${targetFile}"|head -1)
+#            chk=$(echo "$resp"|grep "导出失败" >& /dev/null;echo $?)
+#            if [ $chk -eq 0 ]; then
+#                if (( $Retry == $MAX_RETRY )); then
+#                    NO_CLEAN=true
+#                    RAPIDLIST="Failed to get rapid link."
+#                    curl -g -m ${CurlTimeout} -sX POST ${LINE_API} --header 'Content-Type: application/x-www-form-urlencoded' --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+#"Message=     Failed to get rapid link.
+#[Task]：      ${DEST}/${targetFile}"
+#                    break
+#                fi
+#                echo -ne ${CLEAR_LINE}${Notice}"Failed to get rapid link. Sleep 60 sec and retry...$Retry/$MAX_RETRY"
+#                (( Retry = Retry + 1 ))
+#                sleep 60
+#            else
+#                echo -e ${CLEAR_LINE}${Notice}"Success to get rapid link."
+#                RAPIDLIST="$resp"
+#                break
+#            fi
+#        done
     fi
     MOVED=true
 fi
@@ -534,7 +635,7 @@ if ${DEBUG}; then
 echo "curl -g -m ${CurlTimeout} -sX POST \"https://www.tsdm39.net/forum.php?mod=post&action=newthread&fid=${FID}&topicsubmit=yes\" --header \"${TSDM_Cookie}\" --form \"formhash=${FORMHASH}\" --form \"typeid=${TYPE}\" --form \"subject=${pmtitle}[${filesize}]\" --form 'usesig=\"1\"' --form 'allownoticeauthor=\"1\"' --form 'addfeed=\"1\"' --form 'wysiwyg=\"0\"' --form \"message=[align=center][b]*****This post is generated by script wrote by Inanity緋雪, 
 if you find any problems please contact me ASAP, thanks.*****[/align][/b]
 [table=98%]
-[tr][td]鏈接[/td][td=88%] [url=${LINK}]${LINK}[/url][/td][/tr]
+[tr][td]鏈接[/td][td=85%] [url=${LINK}]${LINK}[/url][/td][/tr]
 [tr][td]提取碼[/td][td]${sharePW}[/td][/tr]
 [tr][td]解壓碼[/td][td] [b][color=Red][size=6]${PW}[/size][/color][/b][/td][/tr]
 [tr][td]發佈源[/td][td][url=${pubURL}]${pubURL}[/url][/td][/tr]
@@ -549,7 +650,7 @@ RCUP
 response=$(curl -g -m ${CurlTimeout} -sX POST "https://www.tsdm39.net/forum.php?mod=post&action=newthread&fid=${FID}&topicsubmit=yes" --header "${TSDM_Cookie}" --form "formhash=${FORMHASH}" --form "typeid=${TYPE}" --form "subject=${pmtitle}[${filesize}]" --form 'usesig="1"' --form 'allownoticeauthor="1"' --form 'addfeed="1"' --form 'wysiwyg="0"' --form "message=[align=center][b]*****This post is generated by script wrote by Inanity緋雪, 
 if you find any problems please contact me ASAP, thanks.*****[/align][/b]
 [table=98%]
-[tr][td]鏈接[/td][td=88%] [url=${LINK}]${LINK}[/url][/td][/tr]
+[tr][td]鏈接[/td][td=85%] [url=${LINK}]${LINK}[/url][/td][/tr]
 [tr][td]提取碼[/td][td]${sharePW}[/td][/tr]
 [tr][td]解壓碼[/td][td] [b][color=Red][size=6]${PW}[/size][/color][/b][/td][/tr]
 [tr][td]發佈源[/td][td][url=${pubURL}]${pubURL}[/url][/td][/tr]

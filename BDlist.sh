@@ -1,4 +1,5 @@
 #!/bin/bash
+source /root/.bashrc
 DEBUG=false
 CLEAR_LINE="\r\033[K"
 PATH="/usr/local/bin:$PATH"
@@ -10,7 +11,7 @@ ConfigFile=${ScriptDIR}/aria2.conf
 CurlTimeout=5
 MODE=
 SPEC=false
-ARG1="$1"
+ARG1=$(urlencode $1)
 ARG2="$2"
 ARG3="$3"
 
