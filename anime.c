@@ -49,6 +49,8 @@
 #define BANGUMI             "bangumi.moe"
 #define NYAA                "nyaa.si"
 
+
+#define MSG_DEBUG           COLOR_RED"[Info]: Debug Mode Enabled.\n"COLOR_RESET
 #define MSG_SUCCESS         COLOR_GREEN"Success"COLOR_RESET
 #define MSG_FAIL            COLOR_RED"Fail"COLOR_RESET
 #define MSG_FAIL_N          "Fail"
@@ -59,6 +61,8 @@
 #define MSG_TITLE           COLOR_PURPLE"[Title]:         "COLOR_RESET
 #define MSG_PUBDATE         COLOR_PURPLE"[PubDate]:       "COLOR_RESET
 #define MSG_TORRENT         COLOR_PURPLE"[Torrent Link]:  "COLOR_RESET
+#define MSG_PUBTIME         COLOR_PURPLE"[Publish Time]:  "COLOR_RESET
+#define MSG_LASTIME_ORI     COLOR_PURPLE"[Last Check Time]:  "COLOR_RESET
 #define MSG_CURTIME         "[Current Time]:  "
 #define MSG_LASTIME         "[Check Time]:    "
 #define MSG_LINE            "{PUSH to LINE}="
@@ -123,7 +127,6 @@ char        LINE_TOKEN      [BUF_SIZE];
 char        ARIA2_TOKEN     [BUF_SIZE];
 time_t      CUR_TIME;
 time_t      LAST_TIME;
-time_t      DL_START;
 publish     PUBLISH;
 
 const int   len_rss         = strlen("python3 -u  \"\" 2> /dev/null") + 1;
@@ -170,6 +173,10 @@ int main(int argc, char *argv[]) {
 
     char buf[BUF_SIZE];
     time_t terminated;
+    
+    #ifdef DEBUG_MODE
+    printf(MSG_DEBUG);
+    #endif
 
     // print time info
     time(&CUR_TIME);
@@ -363,8 +370,11 @@ void getXML(const char * const URL) {
         // parse item block
         if (strstr(buf, ITEM_HEAD)) {
             create_item(fp_xml);
-            if (top) temp = PUBLISH.pubTime;
-            top = false;
+            if (top) {
+                temp = PUBLISH.pubTime;
+                top = false;
+            }
+
             if (PUBLISH.pubTime <= LAST_TIME && PUBLISH.pubTime <= PUBLISH.lastPub) break;
             if (!hasNew) {printf(MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle); printline();}
             if (hasNew)  printline();
@@ -723,6 +733,12 @@ void task_notify(void) {
     printf(MSG_TITLE"%s\n", PUBLISH.title);
     printf(MSG_PUBDATE"%s\n", buf);
     printf(MSG_TORRENT"%s\n", PUBLISH.torrent); 
+
+    #ifdef DEBUG_MODE
+    printf(MSG_PUBTIME"%d\n,", PUBLISH.pubTime);
+    printf(MSG_LASTIME_ORI"%d\n,", LAST_TIME);
+    #endif
+
     sprintf(msg, "\n[Title]： %s\n[PubDate]： %s\n[URL]： %s", PUBLISH.title, buf, PUBLISH.link);
     push_notify(msg);
 

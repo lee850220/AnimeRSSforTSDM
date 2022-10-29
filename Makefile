@@ -43,6 +43,11 @@ clean:
 	@rm -fv $(OBJ) $(EXE) .depend
 
 #============================================= Optional =============================================
-debug:
+debug: _debug clean dep main
+
+_debug:
+CFLAGS += -DDEBUG_MODE
+
+memchk:
 	valgrind --leak-check=full ./$(EXE) > /dev/null 2> res2
 	valgrind -v --track-origins=yes --leak-check=full ./$(EXE) > /dev/null 2> res3

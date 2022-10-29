@@ -28,6 +28,8 @@ NP=false
 FIN=false
 NOUP=false
 NO_CLEAN=false
+FAILSHARE=false
+FAILSHARE_SKIP=true
 
 if ${DEBUG}; then
     echo ${Notice}"Debug mode enabled!"
@@ -192,7 +194,7 @@ function GET_FILEID {
                 echo "Failed."
                 echo -n ${Notice}"Get fileID failed. Push notification to LINE & Exit..."
                 resp=$(curl ${CurlFlag} POST ${LINE_API} --header "${ContentType}" --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
-"Message=     Task failed. (reason: cannot get fileID)
+"Message=     Task failed. (reason: Cannot get fileID)
 [Task]：     ${targetFile}")
 
                 chk=$(echo "${resp}"| grep -o "status[^,]*" | grep -o "[0-9]*")
@@ -237,26 +239,52 @@ function CSHARE {
 
         else
 
-            if (( $Retry == $MAX_RETRY )); then
-                echo ${Notice}"Get share link failed. Exit..."
-                resp=$(curl ${CurlFlag} POST ${LINE_API} --header "${ContentType}" --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
-"Message=     Task failed. (reason: cannot get share link)
-[Task]：     ${filename_ext}")
-                exit
-            else
-                (( Retry = Retry + 1 ))
-                if ${DEBUG}; then
-                    echo $resp
-                fi
-                if [ "$resp" = "" ]; then
-                    echo "Failed. (reason: Empty response.)"
-                else
-                    resp=$(echo $resp| grep -o "show_msg[^}]*" | tr -d "\"" | sed 's/show_msg://')
-                    echo "Failed. (reason: ${resp})"
-                fi
-                echo "${Notice}Sleep ${RetryTimeout} sec and retry. Retry ${Retry}/${MAX_RETRY}..."
-                sleep ${RetryTimeout}
+            (( Retry = Retry + 1 ))
+            if ${DEBUG}; then
+                echo $resp
             fi
+            if [ "$resp" = "" ]; then
+                echo "Failed. (reason: Empty response.)"
+            else
+                resp=$(echo $resp| grep -o "show_msg[^}]*" | tr -d "\"" | sed 's/show_msg://')
+                echo "Failed. (reason: ${resp})"
+            fi
+
+            if ( (( $Retry == $MAX_RETRY )) || [ "$resp" = "您好，由于系统升级，分享功能暂不可用，升级完成后恢复正常" ] ); then
+                
+                if ! $FAILSHARE_SKIP; then
+
+                    if (( $Retry == $MAX_RETRY )); then
+                        echo ${Notice}"Reach Max Retry. Get share link failed. Exit..."
+                        reason="Reach max retry, cannot get share link"
+                    else
+                        echo ${Notice}"Baidu blocked share function. Get share link failed. Exit..."
+                        reason="Baidu blocked share function, cannot get share link"
+                    fi
+
+                    resp=$(curl ${CurlFlag} POST ${LINE_API} --header "${ContentType}" --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+"Message=     Task failed. (reason: ${reason})
+[Task]：     ${filename_ext}")
+                    exit
+
+                else
+
+                    if (( $Retry == $MAX_RETRY )); then
+                        echo ${Notice}"Reach Max Retry. Get share link failed. Can skip..."
+                    else
+                        echo ${Notice}"Baidu blocked share function. Get share link failed. Can skip..."
+                    fi
+                    LINK="${resp}"
+                    FAILSHARE=true
+                    break
+
+                fi
+
+            fi
+            
+            echo "${Notice}Sleep ${RetryTimeout} sec and retry. Retry ${Retry}/${MAX_RETRY}..."
+            sleep ${RetryTimeout}
+            
 
         fi
     done
@@ -309,13 +337,13 @@ function GET_EPISODE {
         # finish episode
         SINGLE_EP=false
     else
-        resp=$(echo "${filename}"|grep "\[\(SP\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}集\{0,1\}\]" > /dev/null;echo $?)
+        resp=$(echo "${filename}"|grep "\[\(SP\)\{0,1\}\(Q\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}集\{0,1\}\]" > /dev/null;echo $?)
         if [ $resp -eq 0 ]; then
             # single episode (bracket)
-            episode=$(echo "${filename}"|grep -o "\[\(SP\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}集\{0,1\}\]"|tr -d "[]集")
-            resp=$(echo "${filename}"|grep "\[v[1-9]\]" > /dev/null;echo $?)
+            episode=$(echo "${filename}"|grep -o "\[\(SP\)\{0,1\}\(Q\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}集\{0,1\}\]"|tr -d "[]Q集")
+            resp=$(echo "${filename}"|grep "\[[Vv][1-9]\]" > /dev/null;echo $?)
             if [[ $resp -eq 0 ]]; then
-                episode=${episode}$(echo "${filename}"|sed "s/.*\[\(v[1-9]\)\].*/\1/")
+                episode=${episode}$(echo "${filename}"|sed "s/.*\[[Vv]\([1-9]\)\].*/v\1/")
             fi
             resp=$(echo "${filename}"|grep "\[SP\]" > /dev/null;echo $?)
             if [[ $resp -eq 0 ]]; then
@@ -323,9 +351,9 @@ function GET_EPISODE {
             fi
         else
             # single episode (no bracket)
-            episode=$(echo "${filename}"|grep -o "\ \(SP\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}[^.0-9A-Za-z[]]\{0,1\}"|tr -d " ")
+            episode=$(echo "${filename}"|grep -o "\ \(SP\)\{0,1\}\(Q\)\{0,1\}[0-9]\{2,3\}\([Vv][1-9]\)\{0,1\}[^.0-9A-Za-z[]]\{0,1\}"|tr -d " ")
             if [[ $episode == "" ]]; then
-                episode=$(echo "${filename}"|grep -o "\ \(SP\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}$"|tr -d " ")
+                episode=$(echo "${filename}"|grep -o "\ \(SP\)\{0,1\}[0-9]\{2,3\}\([Vv][1-9]\)\{0,1\}$"|tr -d " "|sed "s/.*[Vv]\([1-9]\)\].*/v\1/")
             fi
         fi
         SINGLE_EP=true
@@ -633,14 +661,30 @@ CHECK_INTERNET
 echo "${Notice}Posting main post on TSDM..."
 pubURL=$(head -2 "${UploadConfig}" | tail -1)
 pubDate=$(head -3 "${UploadConfig}" | tail -1)
-post=$(tail -n +5 "${UploadConfig}" | head -n -3)
+post=$(tail -n +5 "${UploadConfig}" | head -n -1)
+
+if ${DEBUG}; then
+    echo 11111111111111111111111111
+    cat "${UploadConfig}"
+    echo 44444444444444444444444444
+    tail -n +5 "${UploadConfig}" | head -n -1
+    echo 77777777777777777777777777
+fi
+
 GET_FILESIZE
 CHECK_SEASON
+
+if $FAILSHARE; then
+    LINK_SEQ="[tr][td]鏈接[/td][td=85%] ${LINK}[/td][/tr]"
+else
+    LINK_SEQ="[tr][td]鏈接[/td][td=85%] [url=${LINK}]${LINK}[/url][/td][/tr]"
+fi
+
 if ${DEBUG}; then
 echo "curl ${CurlFlag} POST \"https://www.tsdm39.net/forum.php?mod=post&action=newthread&fid=${FID}&topicsubmit=yes\" --header \"${TSDM_Cookie}\" --form \"formhash=${FORMHASH}\" --form \"typeid=${TYPE}\" --form \"subject=${pmtitle}[${filesize}]\" --form 'usesig=\"1\"' --form 'allownoticeauthor=\"1\"' --form 'addfeed=\"1\"' --form 'wysiwyg=\"0\"' --form \"message=[align=center][b]*****This post is generated by script wrote by Inanity緋雪, 
 if you find any problems please contact me ASAP, thanks.*****[/align][/b]
 [table=98%]
-[tr][td]鏈接[/td][td=85%] [url=${LINK}]${LINK}[/url][/td][/tr]
+${LINK_SEQ}
 [tr][td]提取碼[/td][td]${sharePW}[/td][/tr]
 [tr][td]解壓碼[/td][td] [b][color=Red][size=6]${PW}[/size][/color][/b][/td][/tr]
 [tr][td]發佈源[/td][td][url=${pubURL}]${pubURL}[/url][/td][/tr]
@@ -656,7 +700,7 @@ RCUP
 response=$(curl ${CurlFlag} POST "https://www.tsdm39.net/forum.php?mod=post&action=newthread&fid=${FID}&topicsubmit=yes" --header "${TSDM_Cookie}" --form "formhash=${FORMHASH}" --form "typeid=${TYPE}" --form "subject=${pmtitle}[${filesize}]" --form 'usesig="1"' --form 'allownoticeauthor="1"' --form 'addfeed="1"' --form 'wysiwyg="0"' --form "message=[align=center][b]*****This post is generated by script wrote by Inanity緋雪, 
 if you find any problems please contact me ASAP, thanks.*****[/align][/b]
 [table=98%]
-[tr][td]鏈接[/td][td=85%] [url=${LINK}]${LINK}[/url][/td][/tr]
+${LINK_SEQ}
 [tr][td]提取碼[/td][td]${sharePW}[/td][/tr]
 [tr][td]解壓碼[/td][td] [b][color=Red][size=6]${PW}[/size][/color][/b][/td][/tr]
 [tr][td]發佈源[/td][td][url=${pubURL}]${pubURL}[/url][/td][/tr]

@@ -69,7 +69,13 @@ then
 				if [ -e "${path}.NP" ]; then
 					echo ${Notice}"$path run with RAR_TSDM.sh." && /etc/aria2/RAR_TSDM.sh "${path}" "NP"
 				else
-					echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}"
+					chk=$(tail -1 "$path.upload")
+					if [ "$chk" = "" ]; then
+						echo ${Notice}"$path run with RAR_TSDM.sh." && /etc/aria2/RAR_TSDM.sh "${path}"
+					else
+						echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}"
+					fi
+					
 				fi
 			fi
 			BT
@@ -80,12 +86,17 @@ then
 	
 elif [ "$path" != "$filepath" ]
 then
-	# Folder (need fix)
+	# Folder
 	if [ -e "$path.upload" ]; then
 		if [ -e "${path}.NP" ]; then
 			echo ${Notice}"$path run with RAR_TSDM.sh." && /etc/aria2/RAR_TSDM.sh "${path}" "F" "NP"
 		else
-			echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}" "F"
+			chk=$(tail -1 "$path.upload")
+			if [ "$chk" = "" ]; then
+				echo ${Notice}"$path run with RAR_TSDM.sh." && /etc/aria2/RAR_TSDM.sh "${path}" "F"
+			else
+				echo ${Notice}"$path run with RAR_TSDM.sh." && echo $DL_FIN >> "$path.upload" && /etc/aria2/RAR_TSDM.sh "${path}" "F"
+			fi
 		fi
 	fi
 	BT        

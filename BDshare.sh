@@ -203,7 +203,6 @@ if [[ $MODE = "c" ]]; then
             shareid_list=$(echo ${resp})
             Cancel_Share
         fi
-        Cancel_Share
     fi
 
 elif [[ $MODE = "l" ]]; then
