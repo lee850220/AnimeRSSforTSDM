@@ -11,6 +11,7 @@
 #define SLEEP_TIME          1000
 #define UP                  "\33[A"
 #define ERASE_LINE          "\33[2K\r"
+#define MOVE_LINE_HEAD      "\r"
 #define COLOR_RESET         "\033[0m"
 #define COLOR_RED           "\033[1;31m"
 #define COLOR_GREEN         "\033[1;32m"
@@ -171,6 +172,7 @@ void    cleanenv            (void);
 
 int main(int argc, char *argv[]) {
 
+    setbuf(stdout, NULL);
     char buf[BUF_SIZE];
     time_t terminated;
     
@@ -341,7 +343,7 @@ void getXML(const char * const URL) {
 
     FILE * fp_xml;
     time_t temp;
-    bool top = true, hasNew = false;
+    bool top = true, hasNew = false, hasItem = false;
     char buf[BUF_SIZE];
     char * cmd = (char *)malloc(sizeof(char) * (len_rss + strlen(FILENAME_PXML) + strlen(URL)));
     memset(cmd, 0, sizeof(cmd));
@@ -370,24 +372,28 @@ void getXML(const char * const URL) {
         // parse item block
         if (strstr(buf, ITEM_HEAD)) {
             create_item(fp_xml);
-            if (top) {
-                temp = PUBLISH.pubTime;
-                top = false;
-            }
-
-            if (PUBLISH.pubTime <= LAST_TIME && PUBLISH.pubTime <= PUBLISH.lastPub) break;
-            if (!hasNew) {printf(MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle); printline();}
-            if (hasNew)  printline();
+            if (top) temp = PUBLISH.pubTime; 
+            printf(ERASE_LINE"Checking %s (%s)", URL_RSS, PUBLISH.ptitle);
+            if (PUBLISH.pubTime <= LAST_TIME && PUBLISH.pubTime <= PUBLISH.lastPub) {printf(MOVE_LINE_HEAD); break;}
+            if (top) printf(ERASE_LINE""MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle);
+            printline();
             hasNew = true;
             task_notify();
             addDownload();
             TASK_CNT++;
 
-        }        
+            if (top) {
+                top = false;
+                hasItem = true;
+            }
+        }
 
     }
     if (hasNew) {RSS_PUB_CNT++; printdline();}
-    PUBLISH.lastPub = temp;
+
+    if (hasItem) PUBLISH.lastPub = temp;
+    else         PUBLISH.lastPub = 0;
+    
     pclose(fp_xml);
     free(cmd);
 
@@ -735,8 +741,8 @@ void task_notify(void) {
     printf(MSG_TORRENT"%s\n", PUBLISH.torrent); 
 
     #ifdef DEBUG_MODE
-    printf(MSG_PUBTIME"%d\n,", PUBLISH.pubTime);
-    printf(MSG_LASTIME_ORI"%d\n,", LAST_TIME);
+    printf(MSG_PUBTIME"%d\n", PUBLISH.pubTime);
+    printf(MSG_LASTIME_ORI"%d\n", LAST_TIME);
     #endif
 
     sprintf(msg, "\n[Title]： %s\n[PubDate]： %s\n[URL]： %s", PUBLISH.title, buf, PUBLISH.link);
