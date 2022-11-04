@@ -172,9 +172,16 @@ void    cleanenv            (void);
 
 int main(int argc, char *argv[]) {
 
-    setbuf(stdout, NULL);
     char buf[BUF_SIZE];
     time_t terminated;
+    
+
+    if (argc > 1 && strcmp(argv[1], "--daemon") == 0) {
+        printf(MSG_NOTICE"Daemon mode\n");
+    } else {
+        printf(MSG_NOTICE"CMD mode\n");
+        setbuf(stdout, NULL);
+    }
     
     #ifdef DEBUG_MODE
     printf(MSG_DEBUG);
@@ -196,6 +203,7 @@ int main(int argc, char *argv[]) {
     update_checkpoint();
     time(&terminated);
     convert_time(buf, terminated - CUR_TIME);
+    printf(ERASE_LINE);
     printf("Checked %d RSS, and %d has new. Task %d created. Time Elapsed: %s\n", RSS_CNT, RSS_PUB_CNT, TASK_CNT, buf);
     printdline();
     system(CMD_CPTS);
@@ -372,20 +380,20 @@ void getXML(const char * const URL) {
         // parse item block
         if (strstr(buf, ITEM_HEAD)) {
             create_item(fp_xml);
-            if (top) temp = PUBLISH.pubTime; 
+            if (top) {
+                temp = PUBLISH.pubTime;
+                hasItem = true;
+                top = false;
+            }
             printf(ERASE_LINE"Checking %s (%s)", URL_RSS, PUBLISH.ptitle);
             if (PUBLISH.pubTime <= LAST_TIME && PUBLISH.pubTime <= PUBLISH.lastPub) {printf(MOVE_LINE_HEAD); break;}
             if (top) printf(ERASE_LINE""MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle);
+            else     printf(ERASE_LINE);
             printline();
             hasNew = true;
             task_notify();
             addDownload();
             TASK_CNT++;
-
-            if (top) {
-                top = false;
-                hasItem = true;
-            }
         }
 
     }
