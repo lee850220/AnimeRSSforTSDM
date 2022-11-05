@@ -23,7 +23,7 @@ function CLEAN_FILES {
 		fi
 	done
 	IFS=$SAVEIFS
-	rm -rvf "$path.aria2" "$path" "$path.complete" "$path.upload"
+	rm -rvf "$path.aria2" "$path" "$path.complete" "$path.upload" "$path.NP"
 }
 
 function NORMAL {
@@ -66,7 +66,6 @@ elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
 		for file in $(ls $downloadpath/*.torrent); do
 			hash1=$(transmission-show -i "$file" | grep Hash | awk '{print $2}')
 			if [ "$hash" = "$hash1" ]; then 
-				[ -e "$path.upload" ] && /etc/aria2/rar_TSDM.sh "${path}" && rm -fv "${downloadpath}/[Inanity緋雪@TSDM]${filename}.rar"
 				BT_SINGLE
 			fi
 		done

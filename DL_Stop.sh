@@ -14,9 +14,10 @@ echo $1
 echo $2
 echo $3
 source /root/.bashrc
+Notice="[DL_Stop.sh]: "
 #=====================================================
 function CLEAN_FILES {
-	echo [DL_Stop.sh]" "searching match torrent...
+	echo "${Notice}searching match torrent..."
 	hash=$(aria2mgt "$path".aria2 | awk -F ':' '{print $4}')
 	SAVEIFS=$IFS
 	IFS=$(echo -en "\n\b")
@@ -31,26 +32,26 @@ function CLEAN_FILES {
 	done
 	IFS=$SAVEIFS
 	if ! ${REMOVED}; then
-		echo ${Notice}"Cannot found torrent file."
+		echo "${Notice}Cannot found torrent file."
 	fi
 	rm -fv "$path.aria2" "$path.complete" "$path.upload" "$path.NP" "${downloadpath}/[Inanity緋雪@TSDM]${filename_noext}.rar"
 }
 
 function NORMAL {
-	echo [DL_Stop.sh]" "[NORMAL Mode]
+	echo "${Notice}[NORMAL Mode]"
 	if [ "${path}" == *"torrent" ];	then
-		echo [DL_Stop.sh]" "moving file...
+		echo "${Notice}moving file..."
 		mv -v "$path" "$DL${filename}"
 	else
-		echo [DL_Stop.sh]" "This is torrent file, DO NOT move.
+		echo "${Notice}This is torrent file, DO NOT move."
 	fi
 	rm -fv "$path.aria2"
 	exit 0
 }
 
 function BT_SINGLE {
-	echo [DL_Stop.sh]" "[Single BT Mode]
-	echo [DL_Stop.sh]" "moving file...
+	echo "${Notice}[Single BT Mode]"
+	echo "${Notice}moving file..."
 	if [[ -f "$path.upload" ]]; then
 		mv -v "$path" "$TSDM${filename}"
 		if [ "$?" != "0" ]; then rm -rfv "$path"; fi
@@ -62,8 +63,8 @@ function BT_SINGLE {
 }
 
 function BT_FOLDER {
-	echo [DL_Stop.sh]" "[Multi BT Mode]
-	echo [DL_Stop.sh]" "moving file...
+	echo "${Notice}[Multi BT Mode]"
+	echo "${Notice}moving file..."
 	if [[ -f "$path.upload" ]]; then
 		mv -v "$path" "$TSDM${filename}"
 		if [ "$?" != "0" ]; then rm -rfv "$path"; fi
@@ -80,18 +81,18 @@ rdp=${filepath#${downloadpath}/}
 path=${downloadpath}/${rdp%%/*}
 filename=${path#${downloadpath}/}
 filename_noext=${filename_ext%.*}
-echo -e "[DL_Stop.sh] ""\"${path}\""" Download Stop!!!"
+echo -e "${Notice}\"${path}\" Download Stop!!!"
 
 if [ $2 -eq 0 ]
     then
 		# No File
-        echo "[DL_Stop.sh] ""[No file exist]"
+        echo "${Notice}[No file exist]"
         exit 0
 elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
     then
 		# One File
 		if [[ $path == *"torrent" ]]; then
-  			echo ${Notice}"torrent file. Skip..."
+  			echo "${Notice}torrent file. Skip..."
 			rm -fv "$path.aria2"
 			exit 0
 		fi
@@ -101,7 +102,6 @@ elif [ "$path" = "$filepath" ] && [ $2 -eq 1 ]
 		for file in $(ls $downloadpath/*.torrent); do
 			hash1=$(transmission-show -i "$file" | grep Hash | awk '{print $2}')
 			if [ "$hash" = "$hash1" ]; then 
-				#[ -e "$path.upload" ] && /etc/aria2/RAR_TSDM.sh "${path}"
 				BT_SINGLE
 			fi
 		done

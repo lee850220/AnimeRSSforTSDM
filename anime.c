@@ -63,7 +63,7 @@
 #define MSG_PUBDATE         COLOR_PURPLE"[PubDate]:       "COLOR_RESET
 #define MSG_TORRENT         COLOR_PURPLE"[Torrent Link]:  "COLOR_RESET
 #define MSG_PUBTIME         COLOR_PURPLE"[Publish Time]:  "COLOR_RESET
-#define MSG_LASTIME_ORI     COLOR_PURPLE"[Last Check Time]:  "COLOR_RESET
+#define MSG_LASTIME_ORI     COLOR_PURPLE"[Last Check]:  "COLOR_RESET
 #define MSG_CURTIME         "[Current Time]:  "
 #define MSG_LASTIME         "[Check Time]:    "
 #define MSG_LINE            "{PUSH to LINE}="
@@ -119,6 +119,7 @@ typedef struct tm TIME, * TIME_ptr;
 
 bool        is_NOUP;
 bool        is_NOP;
+bool        is_DAEMON       = false;
 int         RSS_CNT         = 0;
 int         RSS_PUB_CNT     = 0;
 int         TASK_CNT        = 0;
@@ -178,6 +179,7 @@ int main(int argc, char *argv[]) {
 
     if (argc > 1 && strcmp(argv[1], "--daemon") == 0) {
         printf(MSG_NOTICE"Daemon mode\n");
+        is_DAEMON = true;
     } else {
         printf(MSG_NOTICE"CMD mode\n");
         setbuf(stdout, NULL);
@@ -299,16 +301,7 @@ void getRSS(void) {
 
                     *pptr++ = 0;
                     PUBLISH.order = atoi(pptr);
-                    
-                    ppptr = strchr(pptr, ' ');
-                    if (ppptr != NULL) {
-                        
-                        *ppptr++ = 0;
-                        if (!strcmp(ppptr, "NP")) {
-                            is_NOP = true;
-                        }
-
-                    }
+                    if (PUBLISH.order == 0) is_NOP = true;
 
                 } else { printf(MSG_ERROR"Illegal format.\n"); cleanenv(); }
                 strcpy(PUBLISH.ptitle, ptr);
@@ -385,11 +378,16 @@ void getXML(const char * const URL) {
                 hasItem = true;
                 top = false;
             }
-            printf(ERASE_LINE"Checking %s (%s)", URL_RSS, PUBLISH.ptitle);
-            if (PUBLISH.pubTime <= LAST_TIME && PUBLISH.pubTime <= PUBLISH.lastPub) {printf(MOVE_LINE_HEAD); break;}
-            if (top) printf(ERASE_LINE""MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle);
-            else     printf(ERASE_LINE);
-            printline();
+
+            if (!is_DAEMON) printf(ERASE_LINE"Checking %s (%s)", URL_RSS, PUBLISH.ptitle);
+            if (PUBLISH.pubTime <= PUBLISH.lastPub) {if (!is_DAEMON) printf(MOVE_LINE_HEAD); break;}
+            if (top) {
+                if (!is_DAEMON) printf(ERASE_LINE""MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle);
+                else            printf(MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle);
+            } else {
+                if (!is_DAEMON) printf(ERASE_LINE); 
+                printline();
+            }
             hasNew = true;
             task_notify();
             addDownload();
@@ -604,6 +602,9 @@ void addDownload(void) {
     fp_filename = NULL;
     
     // wait until torrent file downloaded
+    #ifdef DEBUG_MODE
+    printf("Waiting torrent file downloaded...\n");
+    #endif
     memset(cmd, 0, sizeof(cmd));
     sprintf(cmd, "transmission-show \"%s%s\" &> /dev/null;echo $?", DLDIR, torrent_name);
     while (1) {
@@ -655,33 +656,37 @@ void addDownload(void) {
         fprintf(fp_config, "%s\n", buf);                // publish date
 
         // output sub-post content to upload config
-        memset(cmd, 0, sizeof(cmd));
-        strcpy(cmd, POST_FILE);
-        fp_post = fopen(cmd, "r");
-        if (fp_post == NULL) {printf(MSG_ERROR"Cannot open post content.\n"); cleanenv();}
+        if (PUBLISH.order != 0) {
 
-        cnt = 0;
-        fin = false;
-        while (fgets(buf, sizeof(buf), fp_post) != NULL) {
-            
-            rm_newline(buf);
-            if (strcmp(buf, POST_DELIMIT) == 0) cnt++;
-            if (cnt == PUBLISH.order) {
+            memset(cmd, 0, sizeof(cmd));
+            strcpy(cmd, POST_FILE);
+            fp_post = fopen(cmd, "r");
+            if (fp_post == NULL) {printf(MSG_ERROR"Cannot open post content.\n"); cleanenv();}
+
+            cnt = 0;
+            fin = false;
+            while (fgets(buf, sizeof(buf), fp_post) != NULL) {
                 
-                while (1) {
+                rm_newline(buf);
+                if (strcmp(buf, POST_DELIMIT) == 0) cnt++;
+                if (cnt == PUBLISH.order) {
+                    
+                    while (1) {
 
-                    fgets(buf, sizeof(buf), fp_post);
-                    rm_newline(buf);
-                    if (strcmp(buf, POST_DELIMIT) == 0) {fin = true; break;}
-                    fprintf(fp_config, "%s\n", buf);
+                        fgets(buf, sizeof(buf), fp_post);
+                        rm_newline(buf);
+                        if (strcmp(buf, POST_DELIMIT) == 0) {fin = true; break;}
+                        fprintf(fp_config, "%s\n", buf);
 
+                    }
+                    if (fin) break;
+                    
                 }
-                if (fin) break;
                 
             }
-            
+            fclose(fp_post);
+
         }
-        fclose(fp_post);
 
         // output start download time to upload config
         fprintf(fp_config, "%ld ", dl_start);

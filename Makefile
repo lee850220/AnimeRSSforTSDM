@@ -16,7 +16,7 @@ RED = \033[1;31m
 YELLOW = \033[1;33m
 WHITE = \033[1;37m
 
-.PHONY: clean test dep main check
+.PHONY: clean test dep main check debug _debug memchk
 
 all: clean dep main
 
@@ -46,7 +46,7 @@ clean:
 debug: _debug clean dep main
 
 _debug:
-CFLAGS += -DDEBUG_MODE
+	CFLAGS += -DDEBUG_MODE
 
 memchk:
 	valgrind --leak-check=full ./$(EXE) > /dev/null 2> res2

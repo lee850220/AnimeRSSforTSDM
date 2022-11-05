@@ -33,7 +33,7 @@ FAILSHARE=false
 FAILSHARE_SKIP=true
 
 if ${DEBUG}; then
-    echo ${Notice}"Debug mode enabled!"
+    echo "${Notice}Debug mode enabled!"
 fi
 
 # Check target file
@@ -76,7 +76,7 @@ PW="InanitySnow@TSDM"
 CommentFile="${ScriptDIR}/comment.txt"
 filename="${filename_ext%.*}"
 targetFile="${header}${filename}.rar"
-printf "DEBUG_LOGGER\n\$ConfigFile=${ConfigFile}\n\$1=${ARG1}\n\$2=${ARG2}\n\$path=${path}\n\$filename_ext=${filename_ext}\n\$filename=${filename}\n\$targetFile=${targetFile}\n"
+printf "Arguments Info\n\$ConfigFile=${ConfigFile}\n\$1=${ARG1}\n\$2=${ARG2}\n\$path=${path}\n\$filename_ext=${filename_ext}\n\$filename=${filename}\n\$targetFile=${targetFile}\n"
 
 # For Baidu
 export BAIDUPCS_GO_CONFIG_DIR="${ScriptDIR}"
@@ -158,7 +158,7 @@ function RCDOWN {
 
 function UPLOAD_FAILED {
 
-    echo ${Notice}"File upload failed. Exit..."
+    echo "${Notice}File upload failed. Exit..."
     curl ${CurlFlag} POST ${LINE_API} --header "${ContentType}" --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task failed. (reason: File upload failed)
 [Task]：     ${targetFile}";echo
@@ -193,7 +193,7 @@ function GET_FILEID {
             if (( $Retry == 5 )); then
 
                 echo "Failed."
-                echo -n ${Notice}"Get fileID failed. Push notification to LINE & Exit..."
+                echo -n "${Notice}Get fileID failed. Push notification to LINE & Exit..."
                 resp=$(curl ${CurlFlag} POST ${LINE_API} --header "${ContentType}" --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task failed. (reason: Cannot get fileID)
 [Task]：     ${targetFile}")
@@ -256,10 +256,10 @@ function CSHARE {
                 if ! $FAILSHARE_SKIP; then
 
                     if (( $Retry == $MAX_RETRY )); then
-                        echo ${Notice}"Reach Max Retry. Get share link failed. Exit..."
+                        echo "${Notice}Reach Max Retry. Get share link failed. Exit..."
                         reason="Reach max retry, cannot get share link"
                     else
-                        echo ${Notice}"Baidu blocked share function. Get share link failed. Exit..."
+                        echo "${Notice}Baidu blocked share function. Get share link failed. Exit..."
                         reason="Baidu blocked share function, cannot get share link"
                     fi
 
@@ -271,9 +271,9 @@ function CSHARE {
                 else
 
                     if (( $Retry == $MAX_RETRY )); then
-                        echo ${Notice}"Reach Max Retry. Get share link failed. Can skip..."
+                        echo "${Notice}Reach Max Retry. Get share link failed. Can skip..."
                     else
-                        echo ${Notice}"Baidu blocked share function. Get share link failed. Can skip..."
+                        echo "${Notice}Baidu blocked share function. Get share link failed. Can skip..."
                     fi
                     LINK="${resp}"
                     FAILSHARE=true
@@ -319,7 +319,7 @@ function GET_EPISODE {
             end_ep=$(echo $episode | awk -F'-' '{print $2}')
             (( epis = end_ep - start_ep + 1 ))
             if [ $epis -ge 12 ]; then
-                echo ${Notice}"Finish Episodes!!! Do NOT post."
+                echo "${Notice}Finish Episodes!!! Do NOT post."
                 FIN=true
                 NP=true
             fi
@@ -328,7 +328,7 @@ function GET_EPISODE {
             end_ep=$(echo $episode | awk -F'-' '{print $2}')
             (( epis = end_ep - start_ep + 1 ))
             if [ $epis -ge 12 ]; then
-                echo ${Notice}"Finish Episodes!!! Do NOT post."
+                echo "${Notice}Finish Episodes!!! Do NOT post."
                 FIN=true
                 NP=true
             fi
@@ -337,6 +337,7 @@ function GET_EPISODE {
     elif ${FIN}; then
         # finish episode
         SINGLE_EP=false
+        NP=true
     else
         resp=$(echo "${filename}"|grep "\[\(SP\)\{0,1\}\(Q\)\{0,1\}[0-9]\{2,3\}\(v[1-9]\)\{0,1\}集\{0,1\}\]" > /dev/null;echo $?)
         if [ $resp -eq 0 ]; then
@@ -360,12 +361,13 @@ function GET_EPISODE {
         SINGLE_EP=true
     fi
 
-    if [[ $episode == "" ]]; then
-        echo ${Notice}"Cannot find any episode info. Maybe finish episode. Do NOT post."
+    if ( !${FIN} && [[ $episode == "" ]] ); then
+        echo "${Notice}Cannot find any episode info. Maybe finish episode. Do NOT post."
         curl ${CurlFlag} POST ${LINE_API} --header "${ContentType}" --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     [Warning]: Cannot find any episode info. Maybe finish episode. Do NOT post.
-[Task]：     ${filename_ext}";echo
+[Task]：     ${filename_ext}" > /dev/null
         FIN=true
+        SINGLE_EP=false
         NP=true
     fi
 
@@ -385,8 +387,8 @@ function CLEAN_FILES {
 
     if ! ${NO_CLEAN}; then
 
-        if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
-            rm -rfv "${path}*.rar"
+        if ( ( [ "${ARG2}" = "F" ] && ! ${SINGLE_EP} ) || ${FIN} ); then
+            rm -fv "${path}${filename}/*.rar"
         else    
             rm -rfv "${NEW}"
         fi
@@ -403,15 +405,17 @@ fi
 GET_EPISODE
 
 # Package file by RAR
-if ([ "${ARG2}" = "F" ] || ${FIN}); then
+if ( [ "${ARG2}" = "F" ] || ${FIN} ); then
     SAVEIFS=$IFS
 	IFS=$(echo -en "\n\b")
     if ${SINGLE_EP}; then
-        echo ${Notice}"[Folder Mode] Single!"
+        echo "${Notice}[Folder Mode] Single!"
         echo "${Notice}Packaging \"${filename_ext}\" with RAR..."
         ORIGIN="${path}${targetFile}"
         FILENAME_PARSE
-        echo "rar a -ep -hp"${PW}" -rr${RAR_RECOVERY} -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}" "${path}""
+        if ${DEBUG}; then
+            echo "rar a -ep -hp ${PW} -rr${RAR_RECOVERY} -idcdn -k -t -htb -c- -c -z ${CommentFile} ${NEW} ${path}"
+        fi
         rar a -ep -hp"${PW}" -rr${RAR_RECOVERY} -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}" "${path}"
         MD5=$(md5sum "${NEW}" | awk '{print $1}')
         SHA1=$(sha1sum "${NEW}" | awk '{print $1}')
@@ -421,17 +425,21 @@ if ([ "${ARG2}" = "F" ] || ${FIN}); then
         rm -f "${path}tmp"
         RAPIDLIST="${MD5}#${MD5tmp}#${FILESIZE}#${NEW##*/}"
     else
-        echo ${Notice}"[Folder Mode] Multiple!!"
-        for file in $(ls "${path}"*.m[kp][4v]|sed 's/.*\///'); do
-            ORIGIN="${path}${header}${file%.*}"
+        echo "${Notice}[Folder Mode] Multiple!!"
+        echo "${Notice}Packaging video files under \"${filename_ext}\" with RAR..."
+        for file in $(ls "${path}${filename_ext}"|grep "\.m[kp][4v]"); do
+            echo $file
+            ORIGIN="${path}${filename_ext}/${header}${file%.*}"
             FILENAME_PARSE
-            echo "rar a -ep -hp"${PW}" -rr${RAR_RECOVERY} -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}.rar" "${path}${file}""
-            rar a -ep -hp"${PW}" -rr${RAR_RECOVERY} -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}.rar" "${path}${file}"
+            if ${DEBUG}; then
+                echo "rar a -ep -hp ${PW} -rr${RAR_RECOVERY} -idcdn -k -t -htb -c- -c -z ${CommentFile} ${NEW}.rar ${path}${filename_ext}/${file}"
+            fi
+            rar a -ep -hp"${PW}" -rr${RAR_RECOVERY} -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}.rar" "${path}${filename_ext}/${file}"
             MD5=$(md5sum "${NEW}.rar" | awk '{print $1}')
-            tail -c256 "${NEW}.rar" > "${path}tmp"
-            MD5tmp=$(md5sum "${path}tmp" | awk '{print $1}')
+            tail -c256 "${NEW}.rar" > "${path}${filename_ext}/tmp"
+            MD5tmp=$(md5sum "${path}${filename_ext}/tmp" | awk '{print $1}')
             FILESIZE=$(stat -c %s "${NEW}.rar")
-            rm -f "${path}tmp"
+            rm -f "${path}${filename_ext}/tmp"
             rapid="${MD5}#${MD5tmp}#${FILESIZE}#${NEW##*/}.rar"
             RAPIDLIST=$(printf ${rapid}\\n)"${RAPIDLIST}"
         done
@@ -440,6 +448,7 @@ if ([ "${ARG2}" = "F" ] || ${FIN}); then
     fi
     IFS=$SAVEIFS
 else
+    echo "${Notice}[Single File Mode]"
     echo "${Notice}Packaging \"${filename_ext}\" with RAR..."
     ORIGIN="${path}${targetFile}"
     FILENAME_PARSE
@@ -458,8 +467,7 @@ if ${FIN}; then
     IFS=$(echo -en "\n\b")
     echo "${Notice}Calculating checksum..."
     echo "MD5                              SHA1                                      FILENAME" > "${path}checksum.txt"
-    echo $path
-    for file in $(ls "${path}"*.rar); do
+    for file in $(find "${path}${filename_ext}"|grep "\.rar"); do
         MD5=$(md5sum "${file}" | awk '{print $1}')
         SHA1=$(sha1sum "${file}" | awk '{print $1}')
         echo ${MD5} ${SHA1} "${file##*/}"
@@ -481,12 +489,12 @@ Retry=0
 while true
 do
     UL_START=$(date +%s)
-    if [ "${ARG2}" = "F" ] && ! ${SINGLE_EP}; then
+    if ( ( [ "${ARG2}" = "F" ] && ! ${SINGLE_EP} ) || ${FIN} ); then
         echo -n "${Notice}Uploading files in \"${path}\" via BaiduPCS-Go..."
         BaiduPCS-Go mkdir "${uploadDIR}/${filename}"
         SAVEIFS=$IFS
 	    IFS=$(echo -en "\n\b")        
-        for file in $(ls "${path}"*.m[kp][4v]|sed 's/.*\///'); do
+        for file in $(ls "${path}${filename_ext}"*.m[kp][4v]|sed 's/.*\///'); do
             ORIGIN="${path}${header}${file%.*}"
             FILENAME_PARSE
             BaiduPCS-Go upload "${NEW}.rar" "${uploadDIR}/${filename}"
@@ -559,11 +567,11 @@ if [ $check -ne 0 ]; then
 #[Task]：      ${SRC}"
 #                break
 #            fi
-#            echo -ne ${CLEAR_LINE}${Notice}"Failed to get rapid link. Sleep 60 sec and retry...$Retry/$MAX_RETRY"
+#            echo -ne ${CLEAR_LINE}"${Notice}Failed to get rapid link. Sleep 60 sec and retry...$Retry/$MAX_RETRY"
 #            (( Retry = Retry + 1 ))
 #            sleep 60
 #        else
-#            echo -e ${CLEAR_LINE}${Notice}"Success to get rapid link."
+#            echo -e ${CLEAR_LINE}"${Notice}Success to get rapid link."
 #            RAPIDLIST="$resp"
 #            break
 #        fi
@@ -597,11 +605,11 @@ else
 #[Task]：      ${DEST}/${file}"
 #                        break
 #                    fi
-#                    echo -ne ${CLEAR_LINE}${Notice}"Failed to get rapid link. Sleep 60 sec and retry...$Retry/$MAX_RETRY"
+#                    echo -ne ${CLEAR_LINE}"${Notice}Failed to get rapid link. Sleep 60 sec and retry...$Retry/$MAX_RETRY"
 #                    (( Retry = Retry + 1 ))
 #                    sleep 60
 #                else
-#                    echo -e ${CLEAR_LINE}${Notice}"Success to get rapid link."
+#                    echo -e ${CLEAR_LINE}"${Notice}Success to get rapid link."
 #                    RAPIDLIST=$(printf ${rapid}\n)"${RAPIDLIST}"
 #                    break
 #                fi
@@ -631,11 +639,11 @@ else
 #[Task]：      ${DEST}/${targetFile}"
 #                    break
 #                fi
-#                echo -ne ${CLEAR_LINE}${Notice}"Failed to get rapid link. Sleep 60 sec and retry...$Retry/$MAX_RETRY"
+#                echo -ne ${CLEAR_LINE}"${Notice}Failed to get rapid link. Sleep 60 sec and retry...$Retry/$MAX_RETRY"
 #                (( Retry = Retry + 1 ))
 #                sleep 60
 #            else
-#                echo -e ${CLEAR_LINE}${Notice}"Success to get rapid link."
+#                echo -e ${CLEAR_LINE}"${Notice}Success to get rapid link."
 #                RAPIDLIST="$resp"
 #                break
 #            fi
@@ -646,9 +654,9 @@ fi
 
 if ( ${NP} || [ -f "${RecordDIR}/${EPISODE_NAME}/${filename_ext}.posted" ] ); then
     if ${NP}; then
-        echo ${Notice}"Do not post flag is set. No post. exit..."
+        echo "${Notice}Do not post flag is set. No post. exit..."
     else
-        echo ${Notice}"Already posted. exit..."
+        echo "${Notice}Already posted. exit..."
     fi
     CLEAN_FILES
     exit
@@ -726,7 +734,7 @@ while ! $POSTED; do
 
     resp=$(echo "${response}"|grep "文档已移动" > /dev/null;echo $?)
     if [ $resp -eq 0 ]; then
-        echo ${Notice}"Posting main post on TSDM... Success."
+        echo "${Notice}Posting main post on TSDM... Success."
     else
         if ${DEBUG}; then
             echo $response; echo
@@ -739,20 +747,19 @@ while ! $POSTED; do
 
         Retry=0
         while ! $POSTED; do
-        do
             
-            echo ${Notice}"Posting reply on TSDM..."
+            echo "${Notice}Posting reply on TSDM..."
             RCUP
             response=$(curl ${CurlFlag} POST "https://www.tsdm39.net/forum.php?mod=post&action=reply&fid=${FID}&tid=${TID}&replysubmit=yes" --header "${TSDM_Cookie}" --form "formhash=${FORMHASH}" --form "typeid=${TYPE}" --form 'usesig="1"' --form "message=${post}")
             resp=$(echo "${response}"|grep "文档已移动" > /dev/null;echo $?)
             RCDOWN
             if [ $resp -eq 0 ]; then
-                echo ${Notice}"Posting reply on TSDM... Success."
+                echo "${Notice}Posting reply on TSDM... Success."
                 POSTED=true
             else
 
                 if (( $Retry == $MAX_RETRY )); then
-                    echo ${Notice}"Posting reply on TSDM... Failed. Push notification to LINE"
+                    echo "${Notice}Posting reply on TSDM... Failed. Push notification to LINE"
                     echo $response; echo
 
                     esp=$(curl ${CurlFlag} POST ${LINE_API} --header "${ContentType}" --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
@@ -761,15 +768,15 @@ while ! $POSTED; do
                     
                     chk=$(echo "${resp}"| grep -o "status[^,]*" | grep -o "[0-9]*")
                     if [ "$chk" = "200" ]; then
-                        echo ${Notice}"Push LINE notification... Success."
+                        echo "${Notice}Push LINE notification... Success."
                     else
                         resp=$(echo $resp| grep -o "message[^}]*" | tr -d "\"" | sed 's/message://')
-                        echo ${Notice}"Push LINE notification... Failed. (reason: ${resp})"
+                        echo "${Notice}Push LINE notification... Failed. (reason: ${resp})"
                     fi
                     POSTED=true
                 else
                     (( Retry = Retry + 1 ))
-                    echo ${Notice}"Posting reply on TSDM... Failed. $Retry/$MAX_RETRY"
+                    echo "${Notice}Posting reply on TSDM... Failed. $Retry/$MAX_RETRY"
                 fi
 
             fi
@@ -780,23 +787,23 @@ while ! $POSTED; do
         
         if (( $Retry == $MAX_RETRY )); then
 
-            echo ${Notice}"Posting main post on TSDM... Failed. Push notification to LINE & Exit... "
+            echo "${Notice}Posting main post on TSDM... Failed. Push notification to LINE & Exit... "
             resp=$(curl ${CurlFlag} POST ${LINE_API} --header "${ContentType}" --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     Task failed. (reason: TSDM post failed)
 [Task]：      ${NEW}")
             
             chk=$(echo "${resp}"| grep -o "status[^,]*" | grep -o "[0-9]*")
             if [ "$chk" = "200" ]; then
-                echo ${Notice}"Push LINE notification... Success."
+                echo "${Notice}Push LINE notification... Success."
             else
                 resp=$(echo $resp| grep -o "message[^}]*" | tr -d "\"" | sed 's/message://')
-                echo ${Notice}"Push LINE notification... Failed. (reason: ${resp})"
+                echo "${Notice}Push LINE notification... Failed. (reason: ${resp})"
             fi
             exit
 
         else
             (( Retry = Retry + 1 ))
-            echo ${Notice}"Posting main post on TSDM... Failed. $Retry/$MAX_RETRY"
+            echo "${Notice}Posting main post on TSDM... Failed. $Retry/$MAX_RETRY"
         fi
         
     fi
