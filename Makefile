@@ -18,7 +18,7 @@ WHITE = \033[1;37m
 
 .PHONY: clean test dep main check debug _debug memchk
 
-all: clean dep main
+all: clean dep main install
 
 dep:
 	@touch .depend
@@ -43,10 +43,8 @@ clean:
 	@rm -fv $(OBJ) $(EXE) .depend
 
 #============================================= Optional =============================================
-debug: _debug clean dep main
-
-_debug:
-	CFLAGS += -DDEBUG_MODE
+debug: CFLAGS += -DDEBUG_MODE
+debug: all
 
 memchk:
 	valgrind --leak-check=full ./$(EXE) > /dev/null 2> res2

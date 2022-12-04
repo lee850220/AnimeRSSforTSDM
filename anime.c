@@ -376,7 +376,6 @@ void getXML(const char * const URL) {
             if (top) {
                 temp = PUBLISH.pubTime;
                 hasItem = true;
-                top = false;
             }
 
             if (!is_DAEMON) printf(ERASE_LINE"Checking %s (%s)", URL_RSS, PUBLISH.ptitle);
@@ -386,12 +385,13 @@ void getXML(const char * const URL) {
                 else            printf(MSG_RSS"%s (%s)\n", URL_RSS, PUBLISH.ptitle);
             } else {
                 if (!is_DAEMON) printf(ERASE_LINE); 
-                printline();
             }
+            printline();
             hasNew = true;
             task_notify();
             addDownload();
             TASK_CNT++;
+            top = false;
         }
 
     }

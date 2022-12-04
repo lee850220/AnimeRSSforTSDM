@@ -3,13 +3,20 @@ source /root/.bashrc
 PATH="/usr/local/bin:$PATH"
 ScriptDIR="/etc/aria2"
 RecordDIR="/DATA/TSDM/TEMP/Record"
+ConfigFile="${ScriptDIR}/aria2.conf"
 
 filename_ext="${1##*/}"
 UploadConfig="${1}.upload"
-ConfigFile="${ScriptDIR}/aria2.conf"
 ARG1="$1"
 ARG2="$2"
 ARG3="$3"
+
+# For TSDM
+FID=405 #吸血貓
+FID=8   #動漫下載
+TSDM_Cookie=$(cat ${ConfigFile} | grep TSDM_COOKIE | sed "s/.*'\(.*\)'/\1/")
+FORMHASH="218dd071"
+MUTEX="${ScriptDIR}/TSDM.lock"
 
 Notice="[RAR_TSDM.sh]: "
 CLEAR_LINE="\r\033[K"
@@ -93,13 +100,6 @@ sharePW="TSDM"
 # For LINE
 LINE_API="https://notify-api.line.me/api/notify"
 LINE_TOKEN=$(cat ${ConfigFile} | grep LINE= | sed 's/.*=//' | sed 's/[^0-9A-Za-z]//')
-
-# For TSDM
-FID=405 #吸血貓
-FID=8   #動漫下載
-TSDM_Cookie=$(cat ${ConfigFile} | grep TSDM_COOKIE | sed "s/.*'\(.*\)'/\1/")
-FORMHASH="8114d641"
-MUTEX="${ScriptDIR}/TSDM.lock"
 
 ############################################ FUNCTION DEFINITION #################################################
 
@@ -361,7 +361,7 @@ function GET_EPISODE {
         SINGLE_EP=true
     fi
 
-    if ( !${FIN} && [[ $episode == "" ]] ); then
+    if ( ! ${FIN} && [[ $episode == "" ]] ); then
         echo "${Notice}Cannot find any episode info. Maybe finish episode. Do NOT post."
         curl ${CurlFlag} POST ${LINE_API} --header "${ContentType}" --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
 "Message=     [Warning]: Cannot find any episode info. Maybe finish episode. Do NOT post.
