@@ -408,6 +408,7 @@ GET_EPISODE
 if ( [ "${ARG2}" = "F" ] || ${FIN} ); then
     SAVEIFS=$IFS
 	IFS=$(echo -en "\n\b")
+    top=true
     if ${SINGLE_EP}; then
         echo "${Notice}[Folder Mode] Single!"
         echo "${Notice}Packaging \"${filename_ext}\" with RAR..."
@@ -441,7 +442,12 @@ if ( [ "${ARG2}" = "F" ] || ${FIN} ); then
             FILESIZE=$(stat -c %s "${NEW}.rar")
             rm -f "${path}${filename_ext}/tmp"
             rapid="${MD5}#${MD5tmp}#${FILESIZE}#${NEW##*/}.rar"
-            RAPIDLIST=$(printf ${rapid}\\n)"${RAPIDLIST}"
+
+            if $top; then
+                RAPIDLIST="${rapid}"
+            else
+                RAPIDLIST="${RAPIDLIST}"$'\n'"${rapid}"
+            fi
         done
         MD5="參見鏈接內的checksum.txt (非完結合集不提供)"
         SHA1="參見鏈接內的checksum.txt (非完結合集不提供)"
@@ -474,11 +480,11 @@ if ${FIN}; then
         echo ${MD5} ${SHA1} "${file##*/}" >> "${path}checksum.txt"
     done
     IFS=$SAVEIFS
-    echo $RAPIDLIST > "${path}rapidlist.txt"
+    echo -e "$RAPIDLIST" > "${path}rapidlist.txt"
 fi
 
 if ${NOUP}; then
-    echo $RAPIDLIST
+    echo -e "$RAPIDLIST"
     echo "${Notice}\"${filename_ext}\" no need to upload. Exit..."
     exit
 fi

@@ -1,4 +1,20 @@
 #!/bin/bash
+############################################### Description ###############################################
+#
+# This file is used to manage Baidu share link.
+# Support create (s), query (l) and delete (c) links
+#
+# ./BDshare.sh [s|set fs_id] [l|list pattern] [lv|listv pattern] [c|clear share_id|pattern] [h|help]
+# e.g.  ./BDshare.sh s 12345678     # create share link of share_id=12345678
+#       ./BDshare.sh l              # list all share links
+#       ./BDshare.sh l 123          # list all share links contain "123"
+#       ./BDshare.sh lv 123         # list all share links not contain "123"
+#       ./BDshare.sh c              # remove all invalid share links (out-of-date, file removed, file illegal)
+#       ./BDshare.sh c 12345678     # remove share link of share_id=12345678
+#       ./BDshare.sh c 123          # remove all share links contain "123"
+#       ./BDshare.sh h              # show help
+#
+################################################### End ###################################################
 source /root/.bashrc
 PATH="/usr/local/bin:$PATH"
 WORK_DIR="/DATA/TSDM/"
@@ -86,8 +102,11 @@ else
         REVERSE=true
     elif ([[ $ARG1 = "c" ]] || [[ $ARG1 = "clear" ]]); then
         MODE="c"
+    elif ([[ $ARG1 = "h" ]] || [[ $ARG1 = "help" ]]); then
+        head -17 "$ScriptDIR/BDshare.sh" | tail -n +2
+        exit
     else
-        echo ${Notice}"Illegal input."
+        echo ${Notice}"Illegal input. Please type h to get help"
         exit
     fi
 fi
