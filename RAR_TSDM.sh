@@ -1,4 +1,19 @@
 #!/bin/bash
+############################################### Description ###############################################
+#
+# This file is used to run TSDM task, including package, upload and post.
+# Support create (s), query (l) and delete (c) links
+#
+# ./RAR_TSDM.sh {Path} [F] [NP] [FIN] [NOUP]
+# e.g.  ./RAR_TSDM.sh Path              # path is a file
+#       ./RAR_TSDM.sh Path F            # path is a folder
+#       ./RAR_TSDM.sh Path NOUP         # path is a file, package only
+#       ./RAR_TSDM.sh Path NP           # path is a file, need upload but NOT post
+#       ./RAR_TSDM.sh Path F NP         # path is a folder, need upload but NOT post
+#       ./RAR_TSDM.sh Path FIN          # path is fin episode (folder mode), need upload but NOT post
+#       ./RAR_TSDM.sh Path NOUP FIN     # path is fin episode (folder mode), package only
+#
+################################################### End ###################################################
 source /root/.bashrc
 PATH="/usr/local/bin:$PATH"
 ScriptDIR="/etc/aria2"
@@ -38,6 +53,7 @@ NOUP=false
 NO_CLEAN=false
 FAILSHARE=false
 FAILSHARE_SKIP=true
+CHECK_FILE=false
 
 if ${DEBUG}; then
     echo "${Notice}Debug mode enabled!"
@@ -404,6 +420,27 @@ if [[ ! -f ${UploadConfig} ]]; then
 fi
 GET_EPISODE
 
+if $CHECK_FILE; then
+    echo "${Notice}Checking \"${filename_ext}\" file integrity..."
+    python "${ScriptDIR}/check_mi.py -r -t 4 \"${filename_ext}\""
+    if [ $? -ne 0 ]; then
+        echo -n "${Notice}\"${filename_ext}\" File checksum error. Push notification to LINE..."
+        resp=$(curl ${CurlFlag} POST ${LINE_API} --header "${ContentType}" --header "Authorization: Bearer ${LINE_TOKEN}" --data-urlencode \
+"Message=     Moving file failed. Destination not found.
+[Task]：      ${pmtitle}")
+
+        chk=$(echo "${resp}"| grep -o "status[^,]*" | grep -o "[0-9]*")
+        if [ "$chk" = "200" ]; then
+            echo "Success."
+        else
+            resp=$(echo $resp| grep -o "message[^}]*" | tr -d "\"" | sed 's/message://')
+            echo "Failed. (reason: ${resp})"
+        fi
+        echo "${Notice}Exit..."
+        exit
+    fi
+fi
+
 # Package file by RAR
 if ( [ "${ARG2}" = "F" ] || ${FIN} ); then
     SAVEIFS=$IFS
@@ -418,6 +455,10 @@ if ( [ "${ARG2}" = "F" ] || ${FIN} ); then
             echo "rar a -ep -hp ${PW} -rr${RAR_RECOVERY} -idcdn -k -t -htb -c- -c -z ${CommentFile} ${NEW} ${path}"
         fi
         rar a -ep -hp"${PW}" -rr${RAR_RECOVERY} -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}" "${path}"
+        if [ $? -ne 0 ]; then
+            echo "${Notice}Package rar file failed."
+            exit
+        fi
         MD5=$(md5sum "${NEW}" | awk '{print $1}')
         SHA1=$(sha1sum "${NEW}" | awk '{print $1}')
         tail -c256 "${NEW}" > "${path}tmp"
@@ -436,6 +477,10 @@ if ( [ "${ARG2}" = "F" ] || ${FIN} ); then
                 echo "rar a -ep -hp ${PW} -rr${RAR_RECOVERY} -idcdn -k -t -htb -c- -c -z ${CommentFile} ${NEW}.rar ${path}${filename_ext}/${file}"
             fi
             rar a -ep -hp"${PW}" -rr${RAR_RECOVERY} -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}.rar" "${path}${filename_ext}/${file}"
+            if [ $? -ne 0 ]; then
+                echo "${Notice}Package rar file failed."
+                exit
+            fi
             MD5=$(md5sum "${NEW}.rar" | awk '{print $1}')
             tail -c256 "${NEW}.rar" > "${path}${filename_ext}/tmp"
             MD5tmp=$(md5sum "${path}${filename_ext}/tmp" | awk '{print $1}')
@@ -459,6 +504,10 @@ else
     ORIGIN="${path}${targetFile}"
     FILENAME_PARSE
     rar a -ep -hp"${PW}" -rr${RAR_RECOVERY} -idcdn -k -t -htb -c- -c -z"${CommentFile}" "${NEW}" "${path}${filename_ext}"
+    if [ $? -ne 0 ]; then
+        echo "${Notice}Package rar file failed."
+        exit
+    fi
     MD5=$(md5sum "${NEW}" | awk '{print $1}')
     SHA1=$(sha1sum "${NEW}" | awk '{print $1}')
     tail -c256 "${NEW}" > "${path}tmp"

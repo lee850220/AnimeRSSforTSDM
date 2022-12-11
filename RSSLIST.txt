@@ -27,8 +27,6 @@ https://bangumi.moe/rss/search/%E6%98%9F%E7%A9%BA%20Noumin%20%E7%AE%80 【星空
 https://bangumi.moe/rss/search/%E6%98%9F%E7%A9%BA%20Noumin%20%E7%B9%81 【星空字幕组】[點滿農民相關技能後，不知為何就變強了。][1080P][AVC_8bit_AAC][繁體] 4
 https://bangumi.moe/rss/search/%E5%96%B5%20%E8%87%B3%E4%B8%8A%201080%20%E7%AE%80%E6%97%A5 【喵萌奶茶屋】[欢迎来到实力至上主义的教室S2][1080P][AVC_8bit_AAC][简体]​ 5
 https://bangumi.moe/rss/search/%E5%96%B5%20%E8%87%B3%E4%B8%8A%20%E7%B9%81%E6%97%A5%201080 【喵萌奶茶屋】[歡迎來到實力至上主義的教室S2][1080P][AVC_8bit_AAC][繁體]​ 5
-https://bangumi.moe/rss/search/%E6%9E%81%E5%BD%B1%20%E9%87%91%E8%A3%85%201080 【极影字幕社】[金装的薇尔梅][1080P][AVC_8bit_AAC][简体]​ 6
-https://bangumi.moe/rss/search/%E6%A5%B5%E5%BD%B1%20%E9%87%91%E8%A3%9D%201080 【極影字幕社】[金裝的薇爾梅][1080P][AVC_8bit_AAC][繁體]​ 6
 https://bangumi.moe/rss/search/%E6%98%9F%E7%A9%BA%20FLOPS%20%E7%AE%80 【星空字幕组】[恋爱FLOPS][1080P][AVC_8bit_AAC][简体] 7
 https://bangumi.moe/rss/search/%E6%98%9F%E7%A9%BA%20FLOPS%20%E7%B9%81 【星空字幕组】[戀愛FLOPS][1080P][AVC_8bit_AAC][繁體] 7
 https://bangumi.moe/rss/search/%E5%96%B5%E8%90%8C%20FLOPS%201080%20%E5%8F%8C%E8%AF%AD 【喵萌奶茶屋】[恋爱FLOPS][1080P][AVC_8bit_AAC][简体] 7
@@ -36,3 +34,6 @@ https://bangumi.moe/rss/search/%E5%96%B5%E8%90%8C%20FLOPS%201080%20%E9%9B%99%E8%
 https://bangumi.moe/rss/search/%E5%8D%83%20%E6%8B%96%E6%B2%B9%20%E7%AE%80%E4%BD%93 【千夏字幕组】[继母的拖油瓶是我的前女友][1080P][AVC_8bit_AAC][简体]​ 8
 https://bangumi.moe/rss/search/%E5%8D%83%E5%A4%8F%20%E6%8B%96%E6%B2%B9%20%E7%B9%81%E9%AB%94 【千夏字幕组】[繼母的拖油瓶是我的前女友][1080P][AVC_8bit_AAC][繁體]​ 8
 https://bangumi.moe/rss/search/%E6%9E%81%E5%BD%A9%20%E4%B8%96%E7%95%8C%20%E7%B9%81%E9%AB%94 【极彩字幕组】[異世界迷宮裡的後宮生活][1080P][AVC_8bit_AAC][繁體]​ 9
+https://bangumi.moe/rss/search/%E8%BD%BB%E4%B9%8B%E5%9B%BD%20%E5%BD%BC%E5%BE%97%20Extra 【轻之国度字幕组】[彼得格里尔的贤者时间][720P][AVC_8bit_AAC][简体]​ 0
+https://bangumi.moe/rss/search/%E7%88%B1%E6%81%8B%20Guild 【爱恋字幕社】[不道德公会][1080P][AVC_8bit_AAC][简体]​ 0
+https://bangumi.moe/rss/search/%E6%84%9B%E6%88%80%20%E4%B8%8D%E9%81%93%E5%BE%B7 【愛戀字幕社】[不道德公會][1080P][AVC_8bit_AAC][繁體] 0

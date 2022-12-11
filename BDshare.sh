@@ -4,7 +4,7 @@
 # This file is used to manage Baidu share link.
 # Support create (s), query (l) and delete (c) links
 #
-# ./BDshare.sh [s|set fs_id] [l|list pattern] [lv|listv pattern] [c|clear share_id|pattern] [h|help]
+# ./BDshare.sh [s|set fs_id] [l|list regex] [lv|listv regex] [c|clear share_id|regex] [h|help]
 # e.g.  ./BDshare.sh s 12345678     # create share link of share_id=12345678
 #       ./BDshare.sh l              # list all share links
 #       ./BDshare.sh l 123          # list all share links contain "123"
@@ -112,24 +112,34 @@ else
 fi
 
 if [[ "$ARG2" != "" ]]; then
-    echo ${Notice}"Specific mode."
-    SPEC=true
-    Count=0
+
+    if [[ "$MODE" != "s" ]]; then
+        echo ${Notice}"Specific mode."
+        SPEC=true
+    fi
+
+    # get arguments
+    top=true
     if [[ "$ARG2" =~ ^[0-9]+$ ]]; then
 
         for ARGS in "$@"; do
 
             if [[ "$ARGS" =~ ^[0-9]+$ ]]; then
-                (( Count = Count + 1 ))
-                shareid_list="$ARGS,$shareid_list"
+                if $top; then
+                    shareid_list=$ARGS
+                    top=false
+                else
+                    shareid_list="$ARGS,$shareid_list"
+                fi
             fi
 
         done
 
-        if ([[ $MODE = "c" ]] || ([[ $MODE = "s" ]] && [[ $Count -eq 1 ]])); then
+        if ([[ $MODE = "c" ]] || [[ $MODE = "s" ]]); then
             SKIP=true
         fi
     fi
+
 else
     if ([[ $MODE = "r" ]] || [[ $MODE = "s" ]]); then
         echo ${Notice}"At least 2 arguments."
@@ -252,7 +262,7 @@ elif [[ $MODE = "s" ]]; then
     echo -ne ${CLEAR_LINE}${Notice}"Creating share link(s)... "
     while true
     do
-        resp=$(curl ${CurlFlag} POST "${SHARE_API}?channel=chunlei&web=1&app_id=${app_id}&logid=${logid}&clienttype=0" -H "${Host}" -H "${UserAgent}" -H "${BD_Cookie}" -H "${ContentType}" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0" --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${ARG2}]")
+        resp=$(curl ${CurlFlag} POST "${SHARE_API}?channel=chunlei&web=1&app_id=${app_id}&logid=${logid}&clienttype=0" -H "${Host}" -H "${UserAgent}" -H "${BD_Cookie}" -H "${ContentType}" --data-urlencode "schannel=4" --data-urlencode "channel_list=[]" --data-urlencode "period=0" --data-urlencode "pwd=${sharePW}" --data-urlencode "fid_list=[${shareid_list}]")
         if [ "$resp" = "" ]; then
             echo -ne ${CLEAR_LINE}${Notice}"Creating share link(s)... Failed. Retry...$Retry"
             (( Retry = Retry + 1 ))
