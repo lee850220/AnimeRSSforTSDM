@@ -1,5 +1,5 @@
 # AnimeRSSforTSDM  
-![](https://img.shields.io/badge/tag-v1.5-blue)  ![](https://img.shields.io/badge/maintaince%3F-yes-brightgreen)  [![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg)  
+![](https://img.shields.io/badge/tag-v1.5-blue)  ![](https://img.shields.io/badge/maintaince%3F-yes-brightgreen) 
 This is a project to automatically transfer Anime to Baidu netdisk with some rules on TSDM.
 <br>
 <br>
